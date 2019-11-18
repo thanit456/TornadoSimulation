@@ -24,6 +24,38 @@
 			var material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
 			var cube = new THREE.Mesh( createGeometry(1), material );
 
+
+			// const createCube = (geometry, material) => {
+			// 	const cube = THREE.Mesh(geometry, material);
+			// 	cubes.push(cube);
+			// 	scene.push(cube);
+			// }
+		
+			// createCube(createGeometry(1), material);
+
+
+			// Try circular motion BY
+			circular_cubes = [];
+
+			var simple_geometry = new THREE.BoxGeometry( 1, 1, 1 );
+			var simple_material = new THREE.MeshBasicMaterial( { color: 0xff0000 } );
+	
+			const circular_createCube = (simple_geometry, simple_material) => {
+				const cube = new THREE.Mesh( simple_geometry, simple_material );
+				cube.circular = {
+					cx: 0.1,
+					cz: 0.1,
+					r: 2,
+					omega: 3 + Math.random()*0.2,
+				};
+				cube.t = 0;
+				cube.position.y = 10;
+				circular_cubes.push(cube);
+				scene.add(cube);
+			}
+
+			circular_createCube( simple_geometry, simple_material);
+
 			const createCube = (geometry, material) => {
 				const cube = new THREE.Mesh( geometry, material);
 				cube.spiral = {
@@ -44,6 +76,36 @@
 			camera.position.z = 20;
 			camera.position.y = 20;
 
+			// Set key stroke
+			document.addEventListener("keydown", onDocumentKeyDown, false);
+
+			function onDocumentKeyDown(event) {
+				var key = event.which; 
+                if (key == 87 || key == 83) {
+                    var timer = 0.0001 * Date.now();
+					for(var i = 0; i < cubes.length; i++) {
+						for(var v = 0; v < 10; v++){
+							if (key == 87) 
+								cubes[i].spiral.cz -= 1;
+							else 
+								cubes[i].spiral.cz += 1;
+						}  
+					}
+				}
+				if (key == 65 || key == 68) {
+                    var timer = 0.0001 * Date.now();
+					for(var i = 0; i < cubes.length; i++) {
+						for(var v = 0; v < 10; v++){
+							if (key == 65) 
+								cubes[i].spiral.cx -= 1;
+							else 
+								cubes[i].spiral.cx += 1;
+						}  
+					}
+				}
+                
+			}
+
 			var animate = function () {
 				requestAnimationFrame( animate );
 				
@@ -58,8 +120,21 @@
 					cube.position.z = spiral.cz	+ (1 + cube.t/10) * spiral.r * Math.cos( spiral.omega * t);
 					cube.position.y += spiral.vy * time_step;
 					
+
 					cube.t += time_step;
 				})
+
+				circular_cubes.forEach(cube => {
+					cube.rotation.x += 0.01;
+					cube.rotation.y += 0.01;
+					const {circular, t} = cube;
+					cube.position.x = circular.cx + (1 + t/10) * circular.r * Math.sin(circular.omega * t);
+					cube.position.z = circular.cz + (1 + t/10) * circular.r * Math.cos(circular.omega * t);
+					cube.t += time_step;
+					// cube.position.x += 0.01 * cube.r;
+					// cube.t += time_step
+				})
+
 				frameNo++;
 				renderer.render( scene, camera );
 			};
