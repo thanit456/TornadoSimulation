@@ -1,0 +1,70 @@
+<html>
+	<head>
+		<title>My first three.js app</title>
+		<style>
+			body { margin: 0; }
+			canvas { width: 100%; height: 100% }
+		</style>
+	</head>
+	<body>
+		<script src="/build/three.js"></script>
+		<script>
+			let t = 0, frameNo = 0;
+			let time_step = 0.05;
+			
+			const cubes = [];
+			var scene = new THREE.Scene();
+			var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
+			console.dir(camera)
+			var renderer = new THREE.WebGLRenderer();
+			renderer.setSize( window.innerWidth, window.innerHeight );
+			document.body.appendChild( renderer.domElement );
+
+			var createGeometry = (x, y, z) => new THREE.BoxGeometry( x, y || x, z || x );
+			var material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
+			var cube = new THREE.Mesh( createGeometry(1), material );
+
+			const createCube = (geometry, material) => {
+				const cube = new THREE.Mesh( geometry, material);
+				cube.spiral = {
+					cx: Math.random()*0.1,
+					cz: Math.random()*0.1,
+					r: 2 + Math.random()*1,
+					omega: 3 + Math.random()*0.2,
+					vy: 0.5 + Math.random()*0.2,
+				};
+				cube.t = 0;
+				cube.position.y = 10;
+				
+				cubes.push(cube);
+				scene.add(cube);
+			}
+			createCube(createGeometry(1), material);
+
+			camera.position.z = 20;
+			camera.position.y = 20;
+
+			var animate = function () {
+				requestAnimationFrame( animate );
+				
+				if (frameNo%5 == 0) {
+					createCube(createGeometry(0.1), material);
+				}
+				cubes.forEach(cube => {
+					cube.rotation.x += 0.01;
+					cube.rotation.y += 0.01;
+					const {spiral, t} = cube;
+					cube.position.x = spiral.cx + (1 + cube.t/10) * spiral.r * Math.sin( spiral.omega * t);
+					cube.position.z = spiral.cz	+ (1 + cube.t/10) * spiral.r * Math.cos( spiral.omega * t);
+					cube.position.y += spiral.vy * time_step;
+					
+					cube.t += time_step;
+				})
+				frameNo++;
+				renderer.render( scene, camera );
+			};
+
+			animate();
+		</script>
+	</body>
+</html>
