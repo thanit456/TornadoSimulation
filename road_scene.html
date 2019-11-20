@@ -56,6 +56,12 @@
 
 			circular_createCube( simple_geometry, simple_material);
 
+			// global variable for tracking movement
+			var globalOffset = {
+				x: 0,
+				z: 0
+			};
+
 			const createCube = (geometry, material) => {
 				const cube = new THREE.Mesh( geometry, material);
 				cube.spiral = {
@@ -65,6 +71,9 @@
 					omega: 3 + Math.random()*0.2,
 					vy: 0.5 + Math.random()*0.2,
 				};
+				cube.spiral.targetCx = cube.spiral.cx;
+				cube.spiral.targetCz = cube.spiral.cz;
+
 				cube.t = 0;
 				cube.position.y = 10;
 				
@@ -85,10 +94,12 @@
                     var timer = 0.0001 * Date.now();
 					for(var i = 0; i < cubes.length; i++) {
 						for(var v = 0; v < 10; v++){
-							if (key == 87) 
-								cubes[i].spiral.cz -= 1;
-							else 
-								cubes[i].spiral.cz += 1;
+							if (key == 87) {
+								globalOffset.z -= 1;
+							}
+							else {
+								globalOffset.z += 1;								
+							}
 						}  
 					}
 				}
@@ -96,10 +107,12 @@
                     var timer = 0.0001 * Date.now();
 					for(var i = 0; i < cubes.length; i++) {
 						for(var v = 0; v < 10; v++){
-							if (key == 65) 
-								cubes[i].spiral.cx -= 1;
-							else 
-								cubes[i].spiral.cx += 1;
+							if (key == 65) {
+								globalOffset.x -= 1;
+							}
+							else {
+								globalOffset.x += 1;								
+							}
 						}  
 					}
 				}
@@ -112,7 +125,7 @@
 				if (frameNo%5 == 0) {
 					createCube(createGeometry(0.1), material);
 				}
-				cubes.forEach(cube => {
+				cubes.forEach((cube, idx) => {
 					cube.rotation.x += 0.01;
 					cube.rotation.y += 0.01;
 					const {spiral, t} = cube;
@@ -120,6 +133,9 @@
 					cube.position.z = spiral.cz	+ (1 + cube.t/10) * spiral.r * Math.cos( spiral.omega * t);
 					cube.position.y += spiral.vy * time_step;
 					
+
+					cube.spiral.cx = cube.spiral.targetCx * 0.1 + cube.spiral.cx * 0.9;
+					cube.spiral.cz = cube.spiral.targetCz * 0.1 + cube.spiral.cz * 0.9;
 
 					cube.t += time_step;
 				})
