@@ -29,8 +29,14 @@ var currTime;
 // global varibles for tail
 var lastCreateTailTime = new Date().getTime() / 1000;
 var isCreateTailFrame = true;
-var tailSpawnInterval = 0.0;
-var tailSpawnRate = 0.5;
+
+// tail global constant
+var tailSpawnInterval = 0.02;
+var tailLifeSpan = 0.5; 
+var tailLifeSpanChaos = 3.0;
+var tailMaxLifeSpan = tailLifeSpan + tailLifeSpanChaos;
+var tailGeometry = new THREE.BoxGeometry( 9, 9, 9 );
+var tailMaterial;
 
 var tracersMesh = [];
 var particles = [];
@@ -60,16 +66,13 @@ var texture;
 var geometry;
 var material;
 
-var tailGeometry = new THREE.SphereGeometry( 5, 5, 5 );
-var tailMaterial;
-
 var stereo = false;
 var deviceOrientation = false;
 
 var windowHalfX = window.innerWidth / 2;
 var windowHalfY = window.innerHeight / 2;
 
-var shaderSelection = 0;
+var shaderSelection = 4;
 var uniforms1, uniforms2;
 
 
@@ -207,12 +210,12 @@ function init()
 
 	particleOptions = {
 		particleCount: 1000,
-		deltaTime:50,
+		deltaTime:20,
 		betaX:0.0,
-		betaY:0.01,
+		betaY:0.015,
 		betaZ:0.0,
 		GX:0.0,
-		GY:0.001,
+		GY:0.0015,
 		GZ:0.0,
 		gravity:0.01,
 		betaLiftChaos:10,
@@ -220,7 +223,11 @@ function init()
 		heightChaos:250,
 		tornadoFactor:15,
 		instantRespawn:false,
-		tracer:false
+		tracer:false,
+
+		tailSpawnInterval:0.02,
+		tailLifeSpan:0.5,
+		tailLifeSpanChaos:3.0
 
 	};
 
@@ -244,7 +251,7 @@ function init()
 		"uDirLightPos"		: { type: "v3", value: new THREE.Vector3(1,0,0) },
 		"uDirLightColor"		: { type: "c" , value: new THREE.Color( 0xeeeeee ) },
 		"uAmbientLightColor"	: { type: "c" , value: new THREE.Color( 0x050505 ) },
-		"uBaseColor"		: { type: "c" , value: new THREE.Color( 0xff00ff ) }
+		"uBaseColor"		: { type: "c" , value: new THREE.Color( 0xffffff ) }
 	};
 
 	rebuildParticles();
@@ -256,21 +263,25 @@ function init()
 	h = gui.addFolder( "Particle Options" );
 
 	h.add( particleOptions, "particleCount", 1, 10000, 1 ).name( "#particles" ).onChange( rebuildParticles );
-	h.add( particleOptions, "deltaTime", 10, 1000, 1 ).name( "dt" ).onChange( rebuildParticles );
+	h.add( particleOptions, "deltaTime", 1, 1000, 1 ).name( "dt" ).onChange( rebuildParticles );
 	h.add( particleOptions, "gravity", 0, 0.1, 0.01 ).name( "Gravity" ).onChange( rebuildParticles );
 	h.add( particleOptions, "height", 0, 5000, 1 ).name( "height" ).onChange( rebuildParticles );
 	h.add( particleOptions, "heightChaos", 0, 2500, 1 ).name( "heightChaos" ).onChange( rebuildParticles );
 	h.add( particleOptions, "instantRespawn" ).name( "instant respawn" ).onChange( rebuildParticles );
 	h.add( particleOptions, "tracer" ).name( "show tracer" ).onChange( rebuildParticles );
+	// tail
+	h.add( particleOptions, "tailSpawnInterval", 0, 1, 0.001 ).name( "tail spawn interval" ).onChange( rebuildParticles );
+	h.add( particleOptions, "tailLifeSpan", 0, 20, 0.05 ).name( "tail life span" ).onChange( rebuildParticles );
+	h.add( particleOptions, "tailLifeSpanChaos", 0, 20, 0.05 ).name( "tail life span chaos").onChange( rebuildParticles );
 
 	h = gui.addFolder( "Magnetic Field Options" );
 	h.add( particleOptions, "betaX", 0, 0.1, 0.01 ).name( "betaX" ).onChange( rebuildParticles );
 	h.add( particleOptions, "betaY", 0, 0.1, 0.01 ).name( "betaY" ).onChange( rebuildParticles );
 	h.add( particleOptions, "betaZ", 0, 0.1, 0.01 ).name( "betaZ" ).onChange( rebuildParticles );
 
-	h.add( particleOptions, "GX", 0, 0.1, 0.001 ).name( "beta Lift X" ).onChange( rebuildParticles );
-	h.add( particleOptions, "GY", 0, 0.1, 0.001 ).name( "beta Lift Y" ).onChange( rebuildParticles );
-	h.add( particleOptions, "GZ", 0, 0.1, 0.001 ).name( "beta Lift Z" ).onChange( rebuildParticles );
+	h.add( particleOptions, "GX", 0, 0.01, 0.0005 ).name( "beta Lift X" ).onChange( rebuildParticles );
+	h.add( particleOptions, "GY", 0, 0.01, 0.0005 ).name( "beta Lift Y" ).onChange( rebuildParticles );
+	h.add( particleOptions, "GZ", 0, 0.01, 0.0005 ).name( "beta Lift Z" ).onChange( rebuildParticles );
 
 	h.add( particleOptions, "tornadoFactor", 0, 100, 25 ).name( "Tornado Factor" ).onChange( rebuildParticles );
 
@@ -311,6 +322,12 @@ function rebuildParticles() {
 	G.x = -particleOptions.GX;
 	G.y = -particleOptions.GY;
 	G.z = -particleOptions.GZ;
+
+	tailLifeSpan = particleOptions.tailLifeSpan;
+	tailLifeSpanChaos = particleOptions.tailLifeSpanChaos;
+	tailMaxLifeSpan = particleOptions.tailLifeSpan + particleOptions.tailLifeSpanChaos;
+
+	tailSpawnInterval = particleOptions.tailSpawnInterval;
 
 	//-----
 	//create particles
@@ -362,7 +379,7 @@ function rebuildParticles() {
 		material2 = loadMaterial ( 1 );
 		material3 = loadMaterial ( 2 );
 
-		tailMaterial = loadMaterial; //TODO flap - tail material
+		tailMaterial = loadMaterial(5); //TODO flap - tail material
 	}
 	
 	
@@ -400,7 +417,7 @@ function rebuildParticles() {
 		mesh.topCutOff = particleOptions.height + Math.floor((Math.random() * particleOptions.heightChaos) + 1)
 		//G is the raising velocity and makes a great tornado when its randomness is varied
 		//tempG just holds individual values for each particle
-		mesh.tempG = new THREE.Vector3(G.x,G.y - Math.floor((Math.random()*particleOptions.betaLiftChaos) - particleOptions.betaLiftChaos/2.0) * .0001, G.z);// -.001
+		mesh.tempG = new THREE.Vector3(G.x,G.y - Math.floor((Math.random()*particleOptions.betaLiftChaos) - particleOptions.betaLiftChaos/2.0) * .00001, G.z);// -.001
 		
 		particles.push(mesh);
 	}
@@ -571,7 +588,7 @@ function update()
 	}
 	
 	// update particle tail
-	updateParticleTail()
+	updateParticleTail();
 
 	for (let i=0; i<particles.length; i++)
 	{
@@ -658,10 +675,7 @@ function update()
 		//create tail
 		if (isCreateTailFrame)
 		{
-			if (Math.random() > (1-tailSpawnRate))
-			{
-				createParticleTail(Snew);
-			}
+			createParticleTail(Snew);
 		}
 	}
 	
@@ -715,17 +729,8 @@ function createParticleTail( pos ) // flap - create tail for particle
 	mesh.position.set(pos.x, pos.y, pos.z);
 	scene.add(mesh);
 
-	//mesh.S = new THREE.Vector3(pos.x, pos.y, pos.z);	//position
-	//mesh.V = new THREE.Vector3(vel.x, vel.y, vel.z);//Math.floor((Math.random() * 1))-0.5,Math.floor((Math.random() * 1))-0.5); //velocity
-	//mesh.M = 3;								//mass
-	mesh.life = 2.0;
-	// mesh.mesh_falling = true;
-	// mesh.mesh_raising = false;
+	mesh.life = tailLifeSpan + (Math.random() * tailLifeSpanChaos);
 	mesh.isParticle = true;
-	// mesh.topCutOff = particleOptions.height + Math.floor((Math.random() * particleOptions.heightChaos) + 1)
-	//G is the raising velocity and makes a great tornado when its randomness is varied
-	//tempG just holds individual values for each particle
-	// mesh.tempG = new THREE.Vector3(G.x,G.y - Math.floor((Math.random()*particleOptions.betaLiftChaos) - particleOptions.betaLiftChaos/2.0) * .0001, G.z);// -.001
 	
 	particleTails.push(mesh);
 }
@@ -736,11 +741,16 @@ function updateParticleTail()
 	{
 		var particle = particleTails[i];
 		particle.life -= dt;
+
+		// remove
 		if( particle.life < 0 )
 		{
 			particleTails.splice(i, 1);
 			scene.remove(particle);
 		}
+
+		var ms = (particle.life)/tailMaxLifeSpan;
+		particle.scale.set(ms,ms,ms);
 	}
 }
 
