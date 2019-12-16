@@ -278,14 +278,14 @@ function rebuildParticles() {
 	//-----
 	//create particles
 
-	//Crate
+	//Create
 	//THREE.TextureLoader.crossOrigin = '';
 	//THREE.ImageUtils.crossOrigin = '';
 	texture = new THREE.TextureLoader().load( 'img/crate.gif' );
 	geometry = new THREE.BoxGeometry( 10, 10, 10 );
 
 	//------
-	//We can't uyse the cross origin image file on the file:/// during development... 
+	//We can't use the cross origin image file on the file:/// during development... 
 	if (document.location.href.indexOf("file:///") > -1)
 	{
 		material = new THREE.MeshLambertMaterial( { color:0xffff00 } );
