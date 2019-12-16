@@ -16,10 +16,19 @@ var clock = new THREE.Clock();
 var lastFrameTime = new Date().getTime() / 1000;
 var totalGameTime = 0;
 var dt;
+var edt; // effective
 var currTime;
+
+// global varibles for tail
+var lastCreateTailTime = new Date().getTime() / 1000;
+var isCreateTailFrame = true;
+var tailSpawnInterval = 0.0;
+var tailSpawnRate = 0.5;
 
 var tracersMesh = [];
 var particles = [];
+var particleTails = []; // flap-tail
+
 var mesh;
 //global physics properties
 var B = new THREE.Vector3(0,.01,0); //magnetic field
@@ -34,9 +43,18 @@ var mesh_falling = false;
 var mesh_raising = true;
 var mesh_height = 5;
 
+//particle tail properties
+// var S = new THREE.Vector3(100,0,100);	//position
+// var V = new THREE.Vector3(0.0,0.1,0.1); //velocity
+// var M = 1;								//mass
+// var mesh_height = 5;
+
 var texture;
 var geometry;
 var material;
+
+var tailGeometry = new THREE.SphereGeometry( 5, 5, 5 );
+var tailMaterial;
 
 var stereo = false;
 var deviceOrientation = false;
@@ -178,7 +196,7 @@ function init()
 
 	particleOptions = {
 		particleCount: 1000,
-		deltaTime:500,
+		deltaTime:50,
 		betaX:0.0,
 		betaY:0.01,
 		betaZ:0.0,
@@ -189,7 +207,7 @@ function init()
 		betaLiftChaos:10,
 		height:750,
 		heightChaos:250,
-		tornadoFactor:25,
+		tornadoFactor:15,
 		instantRespawn:false,
 		tracer:false
 
@@ -211,6 +229,12 @@ function init()
 		"uAmbientLightColor"	: { type: "c" , value: new THREE.Color( 0x050505 ) },
 		"uBaseColor"		: { type: "c" , value: new THREE.Color( 0xff0000 ) }
 	};
+	uniforms4 = {
+		"uDirLightPos"		: { type: "v3", value: new THREE.Vector3(1,0,0) },
+		"uDirLightColor"		: { type: "c" , value: new THREE.Color( 0xeeeeee ) },
+		"uAmbientLightColor"	: { type: "c" , value: new THREE.Color( 0x050505 ) },
+		"uBaseColor"		: { type: "c" , value: new THREE.Color( 0xff00ff ) }
+	};
 
 	rebuildParticles();
 
@@ -221,7 +245,7 @@ function init()
 	h = gui.addFolder( "Particle Options" );
 
 	h.add( particleOptions, "particleCount", 1, 10000, 1 ).name( "#particles" ).onChange( rebuildParticles );
-	h.add( particleOptions, "deltaTime", 100, 1000, 1 ).name( "dt" ).onChange( rebuildParticles );
+	h.add( particleOptions, "deltaTime", 10, 1000, 1 ).name( "dt" ).onChange( rebuildParticles );
 	h.add( particleOptions, "gravity", 0, 0.1, 0.01 ).name( "Gravity" ).onChange( rebuildParticles );
 	h.add( particleOptions, "height", 0, 5000, 1 ).name( "height" ).onChange( rebuildParticles );
 	h.add( particleOptions, "heightChaos", 0, 2500, 1 ).name( "heightChaos" ).onChange( rebuildParticles );
@@ -250,14 +274,16 @@ function init()
 			shader2:function(){ shaderSelection = 1; rebuildParticles();},
 			shader3:function(){ shaderSelection = 2; rebuildParticles();},
 			shader4:function(){ shaderSelection = 3; rebuildParticles();},																														
-			shader5:function(){ shaderSelection = 4; rebuildParticles();}																														
+			shader5:function(){ shaderSelection = 4; rebuildParticles();},
+			shader6:function(){ shaderSelection = 5; rebuildParticles();}																														
 		};
 
 		h.add(shaderSelectionController,'shader1').name("Monjori Shader");
 		h.add(shaderSelectionController,'shader2').name("Shader 2");
 		h.add(shaderSelectionController,'shader3').name("Shader 3");
 		h.add(shaderSelectionController,'shader4').name("Shader 4");	
-		h.add(shaderSelectionController,'shader5').name("Cell shader");			
+		h.add(shaderSelectionController,'shader5').name("Cell shader");	
+		h.add(shaderSelectionController,'shader6').name("Flap shader");		
 	
 	}
 	
@@ -304,6 +330,7 @@ function rebuildParticles() {
 			'vertexShader',
 			'vertexShader',
 			'vertexShader',
+			'vertexShaderCell',
 			'vertexShaderCell'
 		];
 		var params = [
@@ -312,6 +339,7 @@ function rebuildParticles() {
 			[ 'fragment_shader3', uniforms1 ],
 			[ 'fragment_shader4', uniforms1 ],
 			[ 'fragment_shaderCell', uniforms3 ],
+			[ 'fragment_shaderTail', uniforms4 ]
 		];
 
 		material = new THREE.ShaderMaterial( {
@@ -319,6 +347,8 @@ function rebuildParticles() {
 			vertexShader: document.getElementById( paramsVertex[ shaderSelection ] ).textContent,
 			fragmentShader: document.getElementById( params[ shaderSelection ][ 0 ] ).textContent
 		} );
+
+		tailMaterial = material; //TODO flap - tail material
 	
 	}
 	
@@ -340,6 +370,7 @@ function rebuildParticles() {
     };   
 
 	particles = [];
+	particleTails = [];
 
 	for (var i = 0; i < particleOptions.particleCount; i++)
 	{
@@ -402,12 +433,26 @@ function update()
 {
 
 	currTime = new Date().getTime() / 1000;
-    dt = currTime - (lastFrameTime || currTime);
+	dt = currTime - (lastFrameTime || currTime);
+	edt = dt*particleOptions.deltaTime;
     //console.log(dt);
     totalGameTime += dt;
 	lastFrameTime = currTime;
-	
 
+	if((currTime - lastCreateTailTime) > tailSpawnInterval)
+	{
+		lastCreateTailTime = lastFrameTime;
+		isCreateTailFrame = true;
+	}
+	else
+	{
+		isCreateTailFrame = false;
+	}
+	
+	// update particle tail
+	updateParticleTail()
+
+	// update particle
 	for (particle of particles)
 	{
 		var F = new THREE.Vector3(0,0,0);
@@ -448,10 +493,11 @@ function update()
 		{
 			if (particle.position.y > mesh_height && particle.mesh_falling)
 			{
-				F.addVectors(F, Gravity)
+				F.addVectors(F, Gravity);
 			}
 			else
 			{
+				// suck to tornado base
 				particle.V = new THREE.Vector3(80-particle.position.x+Math.floor((Math.random() * 40) + 1), 0, 80-particle.position.z+Math.floor((Math.random() * 40) + 1));
 				particle.V.normalize();
 				particle.V.multiplyScalar(1);
@@ -472,21 +518,30 @@ function update()
 
 		F.multiplyScalar(-1); //negative charge
 		//F.multiplyScalar(M); //just 1
-		A.copy(F) 	// A = F/M
-		
-		A.multiplyScalar(dt*particleOptions.deltaTime)
+		A.copy(F); 	// A = F/M
+		A.divideScalar(M);
+
+		A.multiplyScalar(edt);
 
 		Vnew.addVectors(particle.V, A);
-		//Vnew.multiplyScalar(dt*80)
-		particle.S.add(Vnew);
+		particle.V.copy(Vnew);  
+
+		particle.S.add(new THREE.Vector3(Vnew.x*edt, Vnew.y*edt, Vnew.z*edt));
 		
-		Snew.copy(particle.S);
-		particle.V.copy(Vnew);   	
+		Snew.copy(particle.S); 	
 
 	   	particle.position.x = Snew.x;
 	   	particle.position.y = Snew.y;
 	   	particle.position.z = Snew.z;
 		
+		//create tail
+		if (isCreateTailFrame)
+		{
+			if (Math.random() > (1-tailSpawnRate))
+			{
+				createParticleTail(Snew);
+			}
+		}
 	}
 	
 	//------
@@ -527,6 +582,41 @@ function update()
 	stats.update();
 }
 
+function createParticleTail( pos ) // flap - create tail for particle
+{
+	mesh = new THREE.Mesh( tailGeometry, tailMaterial );//THREEx.Crates.createCrate1();   //
+	mesh.position.set(pos.x, pos.y, pos.z);
+	scene.add(mesh);
+
+	//mesh.S = new THREE.Vector3(pos.x, pos.y, pos.z);	//position
+	//mesh.V = new THREE.Vector3(vel.x, vel.y, vel.z);//Math.floor((Math.random() * 1))-0.5,Math.floor((Math.random() * 1))-0.5); //velocity
+	//mesh.M = 3;								//mass
+	mesh.life = 2.0;
+	// mesh.mesh_falling = true;
+	// mesh.mesh_raising = false;
+	mesh.isParticle = true;
+	// mesh.topCutOff = particleOptions.height + Math.floor((Math.random() * particleOptions.heightChaos) + 1)
+	//G is the raising velocity and makes a great tornado when its randomness is varied
+	//tempG just holds individual values for each particle
+	// mesh.tempG = new THREE.Vector3(G.x,G.y - Math.floor((Math.random()*particleOptions.betaLiftChaos) - particleOptions.betaLiftChaos/2.0) * .0001, G.z);// -.001
+	
+	particleTails.push(mesh);
+}
+
+function updateParticleTail()
+{
+	for (var i = particleTails.length-1; i >= 0; i--)
+	{
+		var particle = particleTails[i];
+		particle.life -= dt;
+		if( particle.life < 0 )
+		{
+			particleTails.splice(i, 1);
+			scene.remove(particle);
+		}
+	}
+}
+
 if (window.mobilecheck())
 	performance = null;
 
@@ -560,4 +650,6 @@ function render()
 		renderer.render( scene, camera );
 	}
 }
+
+
 
