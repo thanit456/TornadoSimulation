@@ -45,7 +45,7 @@
         solver.addParticle(particle);
       }
 
-      const createCube = (geometry, material) => {
+      const createCubeRigid = (geometry, material) => {
         const cube = new THREE.Mesh( geometry, material );
         cube.position = new THREE.Vector3(0, 0, 0);
         cube.t = 0;
@@ -61,8 +61,11 @@
         solver.addRigidBody(rigidbody);
       }
       
-      camera.position.z = 100;
-      camera.position.y = 100;
+      camera.position.z = 20;
+      camera.position.y = 20;
+
+      camera.lookAt(0, 0, 0);
+      
 
       // Set key stroke
       // document.addEventListener("keydown", onDocumentKeyDown, false);
@@ -101,25 +104,24 @@
       const animate = function () {
         requestAnimationFrame( animate );
         solver.update();
-        if (frameNo%5 == 0) {
-          createCube(createGeometry(1), material);
-        }
+        // if (frameNo%5 == 0) {
+        //   createCube(createGeometry(1), material);
+        // }
 
-        cubes.forEach(cube => {
-          // console.log('update cube');
-          cube.rotation.x += 0.01;
-          cube.rotation.y += 0.01;
-          cube.t += time_step;
-          cube.position.x = cube.particleRef.position.x;
-          cube.position.y = cube.particleRef.position.y;
-          cube.position.z = cube.particleRef.position.z;
-        })
+        // cubes.forEach(cube => {
+        //   // console.log('update cube');
+        //   cube.rotation.x += 0.01;
+        //   cube.rotation.y += 0.01;
+        //   cube.t += time_step;
+        //   cube.position.x = cube.particleRef.position.x;
+        //   cube.position.y = cube.particleRef.position.y;
+        //   cube.position.z = cube.particleRef.position.z;
+        // })
         // console.log('doge');
 
         frameNo++;
         renderer.render( scene, camera );
       };
-
       animate();
     </script>
   </body>

@@ -89,16 +89,11 @@ class Solver {
         let type1 = Object.prototype.toString.call(obj1);
         let type2 = Object.prototype.toString.call(obj2);
 
-        if (type1 === "Particle" && type2 === "Particle") {
-        
 
-        } else if ( (type1 === "Particle" && type2 !== "Particle") || (type1 !== "Particle" && type2 === "Particle") ) {
+        // TEMP code
+        if (obj1.position.distanceTo(obj2.position)) {
 
-
-        } else {
-
-
-        }
+        }    
     
     }
 
@@ -126,7 +121,7 @@ class Solver {
             dp._forceAcc.add(F);
         });
 
-        // use defaultTimestep to check intersection
+        
 
     }
 
@@ -149,9 +144,10 @@ class Solver {
     // }
 
     step(dt) {
+        dt = dt || this.defaultTimestep;
         this.points.forEach((point, idx) => {
             const deriv = this.derivatives[idx];
-            point.update(deriv, dt || this.defaultTimestep);
+            point.update(deriv, dt);
             // this.points.forEach((otherPoint, i) => {
             //     if (intersection(point, otherPoint)) {
 
