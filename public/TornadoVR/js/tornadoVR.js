@@ -5,7 +5,14 @@
 	Date: May 2016
  */
 
+
+
 // MAIN
+
+// graphics variables (Ray casting) 
+var mouseCoords = new THREE.Vector2();
+var raycaster = new THREE.Raycaster();
+var ballMaterial = new THREE.MeshPhongMaterial( {color: 0x202020 })
 
 // standard global variables
 var container, scene, camera, renderer, effect, controls, stats;
@@ -75,6 +82,7 @@ window.mobilecheck = function() {
 
 
 init();
+initInput()
 animate();
 $('body').scrollTop(1);
 
@@ -144,6 +152,7 @@ function init()
 	// CUSTOM //
 	////////////
 
+
 	var gridXZ = new THREE.GridHelper(100, 10);
 	gridXZ.setColors( new THREE.Color(0x006600), new THREE.Color(0x006600) );
 	gridXZ.position.set( 100,0,100 );
@@ -161,6 +170,8 @@ function init()
 	// gridYZ.setColors( new THREE.Color(0x660000), new THREE.Color(0x660000) );
 	// scene.add(gridYZ);
 	
+	
+
 	// direction (normalized), origin, length, color(hex)
 	var origin = new THREE.Vector3(0+100,0,0+100);
 	var terminus  = new THREE.Vector3(B.x+100, B.y+100, B.z+100);
@@ -383,26 +394,108 @@ function rebuildParticles() {
 		particles.push(mesh);
 	}
 
-	// ROAD: create debug material
-	for (var i = 0; i < particleOptions.particleCount; i++)
-	{
-		mesh = new THREE.Mesh( geometry, material2 );//THREEx.Crates.createCrate1();   //
-		mesh.position.set(-500 + Math.floor((Math.random() * 1000) + 1), 5,  -500 + Math.floor((Math.random() * 1000) + 1));
-		scene.add(mesh);
+	// var loader = new THREE.GLTFLoader();
 
-		mesh.S = new THREE.Vector3(mesh.position.x, mesh.position.y, mesh.position.z);	//position
-		mesh.V = new THREE.Vector3(0.0,0.1,0.1);//Math.floor((Math.random() * 1))-0.5,Math.floor((Math.random() * 1))-0.5); //velocity
-		mesh.M = 3;								//mass
-		mesh.mesh_falling = true;
-		mesh.mesh_raising = false;
-		mesh.isParticle = true;
-		mesh.topCutOff = particleOptions.height + Math.floor((Math.random() * particleOptions.heightChaos) + 1)
+	// loader.load("./model/Thonker.glb", function ( gltf ) {
+	// 	scene.add( gltf.scene );
+
+	// }, undefined, function ( error ) {
+
+	// 	console.error( error );
+
+	// } );
+
+	// // cube
+	// var cubeGeometry = new THREE.CubeGeometry( 10, 10, 10 );
+	// var cubeMaterial = new THREE.MeshBasicMaterial( { color: 0x2222ff } );
+	// var cube = new THREE.Mesh( cubeGeometry, cubeMaterial );
+
+	// cube.S = new THREE.Vector3(cube.position.x, cube.position.y, cube.position.z);	//position
+	// cube.V = new THREE.Vector3(0.0,0.1,0.1);//Math.floor((Math.random() * 1))-0.5,Math.floor((Math.random() * 1))-0.5); //velocity
+	// cube.M = 10;								//mass
+	// cube.mesh_falling = true;
+	// cube.mesh_raising = false;
+	// cube.isParticle = true;
+	// cube.topCutOff = particleOptions.height + Math.floor((Math.random() * particleOptions.heightChaos) + 1)
+	// //G is the raising velocity and makes a great tornado when its randomness is varied
+	// //tempG just holds individual values for each particle
+	// cube.tempG = new THREE.Vector3(G.x,G.y - Math.floor((Math.random()*particleOptions.betaLiftChaos) - particleOptions.betaLiftChaos/2.0) * .0001, G.z);// -.001
+	
+
+	// scene.add(cube);
+	// particles.push(cube)
+
+	
+}
+
+function initInput() {
+	window.addEventListener('mousedown', function(event) {
+		mouseCoords.set(
+			// ! fix ray casting to pointing to ground
+			( event.clientX / window.innerWidth ) * 2 - 1,
+			- ( event.clientY / window.innerHeight ) * 2 + 1
+		)
+
+		raycaster.setFromCamera( mouseCoords, camera);
+
+		var intersects = raycaster.intersectObjects( scene.children );
+
+		this.console.log("Object : ");
+		var minDistance = Number.MAX_VALUE;
+		var nearestPoint = THREE.Vector3(0, 0, 0);
+		for ( var i = 0; i < intersects.length; i++ ) {
+			if (intersects[i].distance < minDistance) {
+				minDistance = intersects[i].distance;
+				nearestPoint = intersects[i].point;
+			} 
+			// console.log('Data : ', intersects[i].point);
+			// console.log("Nearest point : ",nearestPoint);
+
+			/*
+				An intersection has the following properties :
+					- object : intersected object (THREE.Mesh)
+					- distance : distance from camera to intersection (number)
+					- face : intersected face (THREE.Face3)
+					- faceIndex : intersected face index (number)
+					- point : intersection point (THREE.Vector3)
+					- uv : intersection point in the object's UV coordinates (THREE.Vector2)
+			*/
+		}
+		console.log("Nearest point : ",nearestPoint);
+		// Creates a ball and throws it
+		var cubeGeometry = new THREE.CubeGeometry( 20, 20, 20 );
+		var cubeMaterial = new THREE.MeshBasicMaterial( { color: 0x2222ff } );
+		var cube = new THREE.Mesh( cubeGeometry, cubeMaterial );
+		
+		// cube.position.x = ( raycaster.ray.direction.x + raycaster.ray.origin.x );
+		// cube.position.y = ( raycaster.ray.direction.y + raycaster.ray.origin.y );
+		// cube.position.z = ( raycaster.ray.direction.z + raycaster.ray.origin.z );
+
+		cube.position.x = nearestPoint.x;
+		cube.position.y = nearestPoint.y;
+		cube.position.z = nearestPoint.z;
+
+		
+
+		cube.S = new THREE.Vector3(cube.position);	//position
+		// this.console.log(raycaster.ray.origin);
+		// this.console.log(raycaster.ray.direction);
+		
+		
+		cube.V = new THREE.Vector3(0.0,0.1,0.1);//Math.floor((Math.random() * 1))-0.5,Math.floor((Math.random() * 1))-0.5); //velocity
+		cube.M = 10;								//mass
+		cube.mesh_falling = true;
+		cube.mesh_raising = false;
+		cube.isParticle = true;
+		cube.topCutOff = particleOptions.height + Math.floor((Math.random() * particleOptions.heightChaos) + 1)
 		//G is the raising velocity and makes a great tornado when its randomness is varied
 		//tempG just holds individual values for each particle
-		mesh.tempG = new THREE.Vector3(G.x,G.y - Math.floor((Math.random()*particleOptions.betaLiftChaos) - particleOptions.betaLiftChaos/2.0) * .0001, G.z);// -.001
-		
-		particles.push(mesh);
-	}
+		cube.tempG = new THREE.Vector3(G.x,G.y - Math.floor((Math.random()*particleOptions.betaLiftChaos) - particleOptions.betaLiftChaos/2.0) * .0001, G.z);// -.001
+		scene.add(cube);
+
+	// scene.add(cube);o.btVector3( pos.x, pos.y, pos.z ) );
+
+	})
 }
 
 function onWindowResize() {
@@ -439,6 +532,11 @@ function animate()
     requestAnimationFrame( animate );
 	render();		
 	update();
+}
+
+function tornado_path_update()
+{
+	
 }
 
 function update()

@@ -12,34 +12,34 @@
 	<link href="css/tornado.css" rel="stylesheet">
 </head>
 <body>
-
-<script src="js/three_r76.min.js"></script>
-<script src="js/Detector.js"></script>
-<script src="js/libs/stats.min.js"></script>
-<script src="js/libs/dat.gui.min.js"></script>
-<script src="js/controls/OrbitControls.js"></script>
-<script src="js/controls/DeviceOrientationControls.js"></script>
-<script src="js/THREEx.KeyboardState.js"></script>
-<script src="js/THREEx.FullScreen.js"></script>
-<script src="js/THREEx.WindowResize.js"></script>
-<script src="js/threex.crates.js"></script>
-<script src="js/effects/StereoEffect.js"></script>
-<script src="js/effects/VREffect.js"></script>
-<script src="js/geometries/BoxGeometry.js"></script>
-<script src="js/loaders/TextureLoader.js"></script>
-<script src="js/loaders/ImageLoader.js"></script>
-<script src="js/loaders/Cache.js"></script>
-
-<script id="fragment_shader4" type="x-shader/x-fragment">
-	uniform float time;
-	uniform vec2 resolution;
-	varying vec2 vUv;
-	void main( void ) {
-		vec2 position = -1.0 + 2.0 * vUv;
-		float red = abs( sin( position.x * position.y + time / 5.0 ) );
-		float green = abs( sin( position.x * position.y + time / 4.0 ) );
-		float blue = abs( sin( position.x * position.y + time / 3.0 ) );
-		gl_FragColor = vec4( red, green, blue, 1.0 );
+	<script src="js/three_r76.min.js"></script>
+	<script src="js/Detector.js"></script>
+	<script src="js/libs/stats.min.js"></script>
+	<script src="js/libs/dat.gui.min.js"></script>
+	<script src="js/controls/OrbitControls.js"></script>
+	<script src="js/controls/DeviceOrientationControls.js"></script>
+	<script src="js/THREEx.KeyboardState.js"></script>
+	<script src="js/THREEx.FullScreen.js"></script>
+	<script src="js/THREEx.WindowResize.js"></script>
+	<script src="js/threex.crates.js"></script>
+	<script src="js/effects/StereoEffect.js"></script>
+	<script src="js/effects/VREffect.js"></script>
+	<script src="js/geometries/BoxGeometry.js"></script>
+	<script src="js/loaders/TextureLoader.js"></script>
+	<script src="js/loaders/ImageLoader.js"></script>
+	<script src="js/loaders/Cache.js"></script>
+	<script src="js/loaders/GLTFLoader.js">
+	
+	<script id="fragment_shader4" type="x-shader/x-fragment">
+		uniform float time;
+		uniform vec2 resolution;
+		varying vec2 vUv;
+		void main( void ) {
+			vec2 position = -1.0 + 2.0 * vUv;
+			float red = abs( sin( position.x * position.y + time / 5.0 ) );
+			float green = abs( sin( position.x * position.y + time / 4.0 ) );
+			float blue = abs( sin( position.x * position.y + time / 3.0 ) );
+			gl_FragColor = vec4( red, green, blue, 1.0 );
 	}
 </script>
 
