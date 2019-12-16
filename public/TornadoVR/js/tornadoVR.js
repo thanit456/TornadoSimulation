@@ -314,12 +314,15 @@ function rebuildParticles() {
 			[ 'fragment_shaderCell', uniforms3 ],
 		];
 
-		material = new THREE.ShaderMaterial( {
-			uniforms: params[ shaderSelection ][ 1 ],
-			vertexShader: document.getElementById( paramsVertex[ shaderSelection ] ).textContent,
-			fragmentShader: document.getElementById( params[ shaderSelection ][ 0 ] ).textContent
-		} );
-	
+		const loadMaterial = ( selection ) => new THREE.ShaderMaterial({
+			uniforms: params[ selection ][ 1 ],
+			vertexShader: document.getElementById( paramsVertex[ selection ] ).textContent,
+			fragmentShader: document.getElementById( params[ selection ][ 0 ] ).textContent
+		});
+
+		material = loadMaterial( shaderSelection );
+		material2 = loadMaterial ( 1 );
+		material3 = loadMaterial ( 2 );
 	}
 	
 	
@@ -340,6 +343,25 @@ function rebuildParticles() {
     };   
 
 	particles = [];
+	for (var i = 0; i < particleOptions.particleCount; i++)
+	{
+		mesh = new THREE.Mesh( geometry, material );//THREEx.Crates.createCrate1();   //
+		mesh.position.set(-500 + Math.floor((Math.random() * 1000) + 1), 5,  -500 + Math.floor((Math.random() * 1000) + 1));
+		scene.add(mesh);
+
+		mesh.S = new THREE.Vector3(mesh.position.x, mesh.position.y, mesh.position.z);	//position
+		mesh.V = new THREE.Vector3(0.0,0.1,0.1);//Math.floor((Math.random() * 1))-0.5,Math.floor((Math.random() * 1))-0.5); //velocity
+		mesh.M = 1;								//mass
+		mesh.mesh_falling = true;
+		mesh.mesh_raising = false;
+		mesh.isParticle = true;
+		mesh.topCutOff = particleOptions.height + Math.floor((Math.random() * particleOptions.heightChaos) + 1)
+		//G is the raising velocity and makes a great tornado when its randomness is varied
+		//tempG just holds individual values for each particle
+		mesh.tempG = new THREE.Vector3(G.x,G.y - Math.floor((Math.random()*particleOptions.betaLiftChaos) - particleOptions.betaLiftChaos/2.0) * .0001, G.z);// -.001
+		
+		particles.push(mesh);
+	}
 
 	for (var i = 0; i < particleOptions.particleCount; i++)
 	{
@@ -350,6 +372,27 @@ function rebuildParticles() {
 		mesh.S = new THREE.Vector3(mesh.position.x, mesh.position.y, mesh.position.z);	//position
 		mesh.V = new THREE.Vector3(0.0,0.1,0.1);//Math.floor((Math.random() * 1))-0.5,Math.floor((Math.random() * 1))-0.5); //velocity
 		mesh.M = 1;								//mass
+		mesh.mesh_falling = true;
+		mesh.mesh_raising = false;
+		mesh.isParticle = true;
+		mesh.topCutOff = particleOptions.height + Math.floor((Math.random() * particleOptions.heightChaos) + 1)
+		//G is the raising velocity and makes a great tornado when its randomness is varied
+		//tempG just holds individual values for each particle
+		mesh.tempG = new THREE.Vector3(G.x,G.y - Math.floor((Math.random()*particleOptions.betaLiftChaos) - particleOptions.betaLiftChaos/2.0) * .0001, G.z);// -.001
+		
+		particles.push(mesh);
+	}
+
+	// ROAD: create debug material
+	for (var i = 0; i < particleOptions.particleCount; i++)
+	{
+		mesh = new THREE.Mesh( geometry, material2 );//THREEx.Crates.createCrate1();   //
+		mesh.position.set(-500 + Math.floor((Math.random() * 1000) + 1), 5,  -500 + Math.floor((Math.random() * 1000) + 1));
+		scene.add(mesh);
+
+		mesh.S = new THREE.Vector3(mesh.position.x, mesh.position.y, mesh.position.z);	//position
+		mesh.V = new THREE.Vector3(0.0,0.1,0.1);//Math.floor((Math.random() * 1))-0.5,Math.floor((Math.random() * 1))-0.5); //velocity
+		mesh.M = 3;								//mass
 		mesh.mesh_falling = true;
 		mesh.mesh_raising = false;
 		mesh.isParticle = true;
@@ -408,24 +451,26 @@ function update()
 	lastFrameTime = currTime;
 	
 
-	for (particle of particles)
+	for (let i=0; i<particles.length; i++)
 	{
+		let particle = particles[i];
 		var F = new THREE.Vector3(0,0,0);
 		var A = new THREE.Vector3(0,0,0);
 		var Vnew = new THREE.Vector3(0,0,0); //Velocity at t+dt
 		var Snew = new THREE.Vector3(0,0,0); //Position at t+dt
 
+
+		// (100, 0, 100) is center
 		if (Math.abs(particle.S.x-100) < 10 && Math.abs(particle.S.y-5) < 10 && Math.abs(particle.S.z-100) < 10 && particle.mesh_falling == true)
 		{
-			A.x = 0;
-			A.y = 0;
-			A.z = 0;
+			// A.x = 0;
+			// A.y = 0;
+			// A.z = 0;
 			particle.mesh_falling = false;
 			particle.mesh_raising = true;
 			//Controlling the Vx when raising gives us a cool variable magnetic function 
 			//50 = tornado level 5 
 			//10 = tornado level 1
-
 			particle.V.x = 0.01 + Math.floor((Math.random() * particleOptions.tornadoFactor) + 1) * 0.1;
 			particle.V.y = 0.0;
 			particle.V.z = 0.01 + Math.floor((Math.random() * particleOptions.tornadoFactor) + 1) * 0.1;
@@ -471,11 +516,11 @@ function update()
 		}
 
 		F.multiplyScalar(-1); //negative charge
-		//F.multiplyScalar(M); //just 1
+		F.multiplyScalar(1/particle.M); //just 1
 		A.copy(F) 	// A = F/M
 		
 		A.multiplyScalar(dt*particleOptions.deltaTime)
-
+		 
 		Vnew.addVectors(particle.V, A);
 		//Vnew.multiplyScalar(dt*80)
 		particle.S.add(Vnew);
@@ -508,17 +553,23 @@ function update()
 	
 	if ( keyboard.pressed("z") ) 
 	{	// do something   
-		V = new THREE.Vector3(0,0.1,0.1);
-		S.x = 100;
-		S.y = 0;
-		S.z = 100;
-		Snew.x = 100;
-		Snew.y = 100;
-		Snew.z = 100;
-		A.x = 0;
-		A.y = 0;
-		A.z = 0;
-		lastFrameTime = new Date().getTime() / 1000;
+		console.log("pressed Z");
+		mesh = new THREE.Mesh( new THREE.BoxGeometry(20, 5, 20), material3 );//THREEx.Crates.createCrate1();   //
+		mesh.position.set(-500 + Math.floor((Math.random() * 1000) + 1), 5,  -500 + Math.floor((Math.random() * 1000) + 1));
+		scene.add(mesh);
+
+		mesh.S = new THREE.Vector3(mesh.position.x, mesh.position.y, mesh.position.z);	//position
+		mesh.V = new THREE.Vector3(0.0,0.1,0.1);//Math.floor((Math.random() * 1))-0.5,Math.floor((Math.random() * 1))-0.5); //velocity
+		mesh.M = 3;								//mass
+		mesh.mesh_falling = true;
+		mesh.mesh_raising = false;
+		mesh.isParticle = true;
+		mesh.topCutOff = particleOptions.height + Math.floor((Math.random() * particleOptions.heightChaos) + 1)
+		//G is the raising velocity and makes a great tornado when its randomness is varied
+		//tempG just holds individual values for each particle
+		mesh.tempG = new THREE.Vector3(G.x,G.y - Math.floor((Math.random()*particleOptions.betaLiftChaos) - particleOptions.betaLiftChaos/2.0) * .0001, G.z);// -.001
+		
+		particles.push(mesh);
 	}
 	
 	//console.log('(' + Snew.x + "," + Snew.y + "," + Snew.z );
