@@ -16,6 +16,7 @@
       const solver = new Solver();
       console.log(solver);
       const cubes = [];
+      const cubesRigid = [];
       var scene = new THREE.Scene();
       var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
       
@@ -39,10 +40,13 @@
         });
         scene.add(mesh);
         solver.addParticle(particle);
+        return cube;
       }
 
-      const createCubeRigid = (geometry, material) => {
-        let mesh = new THREE.Mesh( geometry, material);
+      const createCubeRigid = (geometry, material, position, velocity) => {
+        const mesh = new THREE.Mesh( geometry, material );
+        mesh.position.copy(position);
+        mesh.t = 0;
         const rigidbody = new RigidBody({
           mesh: mesh,
           mass: 5,
@@ -51,12 +55,15 @@
           _forceAcc: new THREE.Vector3(0, 0, 0),
         });
         scene.add(mesh);
+        mesh.rigidbodyRef = rigidbody;
+        cubesRigid.push(mesh);
         solver.addRigidBody(rigidbody);
+        return mesh;
       }
       
       console.log(solver);
-      camera.position.z = 20;
-      camera.position.y = 20;
+      camera.position.z = -20;
+      camera.position.y = 40;
 
       camera.lookAt(0, 0, 0);
       
@@ -94,15 +101,37 @@
       //   }
                 
       // }
+      let createVect = (r, theta) => {
+        return new THREE.Vector3(Math.sin(theta)*r, 0, Math.cos(theta)*r)
+      };
+      let {random, PI:pi} = Math;
+
+      for (let i=0; i<100; i++){
+        createCubeRigid(simple_geometry, simple_material, createVect(random()*40, random()*pi*2).setY(30), createVect(random()*5+20, random()*pi*2));
+      }
+      
 
       const animate = function () {
         requestAnimationFrame( animate );
         solver.update();
-        if (frameNo%5 == 0) {
-          createCube(createGeometry(1), material);
-        }
+        // if (frameNo%5 == 0) {
+        //   createCube(createGeometry(1), material);
+        // }
 
-        console.log('doge');
+        cubesRigid.forEach(cube => {
+          cube.position.x = cube.rigidbodyRef.position.x;
+          cube.position.y = cube.rigidbodyRef.position.y;
+          cube.position.z = cube.rigidbodyRef.position.z;
+        })
+
+        cubes.forEach(cube => {
+          cube.rotation.x += 0.01;
+          cube.rotation.y += 0.01;
+
+          cube.position.x = cube.particleRef.position.x;
+          cube.position.y = cube.particleRef.position.y;
+          cube.position.z = cube.particleRef.position.z;
+        })
 
         frameNo++;
         renderer.render( scene, camera );
