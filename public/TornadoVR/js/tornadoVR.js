@@ -18,17 +18,20 @@ var keyboard = new THREEx.KeyboardState();
 var clock = new THREE.Clock();
 
 // custom global variables
-var lastFrameTime = new Date().getTime() / 1000;
-var totalGameTime = 0;
-var dt;
-var edt; // effective
-var currTime;
+var totalGameTime = 0.0;
+var currFrameTime = 0.0;
+var lastFrameTime = 0.0;
+var dt = 1/60;
 
 // solver
 let solver = new Solver();
 
-// global variable for dust
-var dustMassChaos = 0.010;
+// global variable for particle
+let particleMassChaos = 0.010;
+let particleGenerateRate = 10; // per seconds
+
+// particle generate
+let lastParticleGenerateTime = 0;
 
 // global varibles for tail
 var lastCreateTailTime = new Date().getTime() / 1000;
@@ -163,7 +166,7 @@ function init()
 	////////////
 
 
-	var gridXZ = new THREE.GridHelper(100, 10);
+	var gridXZ = new THREE.GridHelper(500, 10);
 	gridXZ.setColors( new THREE.Color(0x006600), new THREE.Color(0x006600) );
 	gridXZ.position.set( 0,0,0 );
 	scene.add(gridXZ);
@@ -183,8 +186,8 @@ function init()
 	
 
 	// direction (normalized), origin, length, color(hex)
-	var origin = new THREE.Vector3(0+100,0,0+100);
-	var terminus  = new THREE.Vector3(B.x+100, B.y+100, B.z+100);
+	var origin = new THREE.Vector3(0,0,0);
+	var terminus  = new THREE.Vector3(B.x, B.y, B.z);
 	var direction = new THREE.Vector3().subVectors(terminus, origin).normalize();
 	var arrow = new THREE.ArrowHelper(direction, origin, 100, 0x884400);
 	scene.add(arrow);
@@ -378,15 +381,15 @@ function rebuildParticles() {
 
 	//remove all particles meshes from the scene
 	
-	var children = scene.children;
-    for(var i = children.length-1;i>=0;i--){
-        var child = children[i];
-        if (child.isParticle)
-        {
-        	scene.remove(child);	
-        }
-        
-    };   
+	
+	// clear entity
+	for (const entity of solver.entities)
+	{
+		scene.remove(entity.mesh);
+	}
+
+	// set new solver
+	solver = new Solver();  
 	
 }
 
@@ -498,26 +501,11 @@ function animate()
 
 function update()
 {
+	// update time 
+	lastFrameTime = currFrameTime;
+	currFrameTime = lastFrameTime + dt;
 
-	createDustParticle();
-
-	currTime = new Date().getTime() / 1000;
-	dt = currTime - (lastFrameTime || currTime);
-	edt = dt*particleOptions.deltaTime;
-    //console.log(dt);
-    totalGameTime += dt;
-	lastFrameTime = currTime;
-
-	if((currTime - lastCreateTailTime) > tailSpawnInterval)
-	{
-		lastCreateTailTime = lastFrameTime;
-		isCreateTailFrame = true;
-	}
-	else
-	{
-		isCreateTailFrame = false;
-	}
-	
+	generateGroundParticle();
 	
 	if ( keyboard.pressed("z") ) 
 	{	// do something   
@@ -546,19 +534,38 @@ function update()
 	stats.update();
 }
 
-// TODO delete
-function createDustParticle() 
+function generateGroundParticle()
 {	
-	let mesh = new THREE.Mesh(tailGeometry, tailMaterial );
+	if (currFrameTime - lastParticleGenerateTime > 1/particleGenerateRate)
+	{
+		lastParticleGenerateTime = currFrameTime;
+		let mesh = new THREE.Mesh(geometry, material);
+		let pos = new THREE.Vector3(1000*Math.random() - 500, 20, 1000*Math.random() - 500);
+		mesh.position.copy(pos);
+		let particle = new Particle({
+			mesh: mesh,
+			mass: 0.001 + Math.random()*particleMassChaos,
+			position: new THREE.Vector3().copy(pos),
+			velocity: new THREE.Vector3()
+		});
+		solver.addParticle(particle);
+		scene.add(mesh);
+	}
+}
+
+// for debug
+function _createParticleParticle() 
+{	
+	let mesh = new THREE.Mesh(geometry, material);
 	let pos = new THREE.Vector3(10*Math.random(), 10*Math.random(), 10*Math.random());
 	mesh.position.copy(pos);
-	let dust = new Particle({
+	let particle = new Particle({
 		mesh: mesh,
-		mass: 0.001 + Math.random()*dustMassChaos,
+		mass: 0.001 + Math.random()*particleMassChaos,
 		position: new THREE.Vector3().copy(pos),
 		velocity: new THREE.Vector3(Math.random(), Math.random(), Math.random())
 	});
-	solver.addParticle(dust);
+	solver.addParticle(particle);
 	scene.add(mesh);		
 }
 

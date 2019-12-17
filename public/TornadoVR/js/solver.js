@@ -4,6 +4,7 @@ class Entity {
     velocity;
     _forceAcc;
     mass;
+    isDestroy = false;
     constructor({mesh, mass, position, velocity, _forceAcc}) {
         this.mesh = mesh;
         this.mass = mass;
@@ -11,12 +12,16 @@ class Entity {
         this.velocity = velocity ? new THREE.Vector3().copy(velocity) : new THREE.Vector3(0, 0, 0);
         this._forceAcc = _forceAcc ? new THREE.Vector3().copy(_forceAcc) : new THREE.Vector3(0, 0, 0);
     }
+
+    destroy() {
+        this.isDestroy = true;
+    }
     
     update(derivative, dt) {
-        this.subUpdate(dt);
         this.position.add(derivative.position.multiplyScalar(dt));
         this.velocity.add(derivative.velocity.multiplyScalar(dt));
         this.mesh.position.copy(this.position);
+        this.subUpdate(dt);
     }
     
     subUpdate(dt) {}; //for each entity to have it own update
@@ -25,6 +30,10 @@ class Entity {
 class Particle extends Entity {
     constructor({mesh, mass, position, velocity, _forceAcc}){
         super({mesh, mass, position, velocity, _forceAcc});
+    }
+    subUpdate(dt) {
+        if(this.position.y < -500)
+            this.destroy();
     }
 }
 
@@ -53,7 +62,7 @@ class Solver {
     entities = [];
     derivatives = [];
 
-    particle = [];
+    particles = [];
     derivatives_particle = [];
 
     rigidbodies = [];
@@ -77,7 +86,7 @@ class Solver {
         let deriv = new Particle({
             ...particle,
         })
-        this.particle.push(particle);
+        this.particles.push(particle);
         this.derivatives_particle.push(deriv);
 
         this.addEntity(particle, deriv);
@@ -114,7 +123,6 @@ class Solver {
     calcForces() {
 
         this.derivatives.forEach((dp, idx) =>{
-            let entity = this.entities[idx];
             dp._forceAcc.add(this.gravity);
 
             // B
@@ -169,11 +177,46 @@ class Solver {
         })
     }
 
+    clearDestroyEntity() {
+        for (let i = this.entities.length-1; i >= 0; i--)
+        {
+            let e = this.entities[i];
+            if (e.isDestroy)
+            {
+                    this.entities.splice(i, 1);
+                    this.derivatives.splice(i, 1);
+                    scene.remove(e.mesh);
+            }
+        }
+
+        for (let i = this.particles.length-1; i >= 0; i--)
+        {
+            let e = this.particles[i];
+            if (e.isDestroy)
+            {
+                    this.particles.splice(i, 1);
+                    this.derivatives_particle.splice(i, 1);
+            }
+        }
+
+        for (let i = this.rigidbodies.length-1; i >= 0; i--)
+        {
+            let e = this.rigidbodies[i];
+            if (e.isDestroy)
+            {
+                    this.rigidbodies.splice(i, 1);
+                    this.derivatives_rigid.splice(i, 1);
+            }
+        }
+    
+    }
+
     update() {
         this.clearForces(); // clear old sum force
         this.calcForces(); // calculate new sum force
         this.calcDerivs(); // calc Derivatives
         this.step(); // update derivatives to entities
+        this.clearDestroyEntity();
     }
 
 }
