@@ -65,8 +65,8 @@
       }
       
       console.log(solver);
-      camera.position.z = 0;
-      camera.position.y = 60;
+      camera.position.z = -100;
+      camera.position.y = 40;
 
       camera.lookAt(0, 0, 0);
       
@@ -104,11 +104,14 @@
       //   }
                 
       // }
+      let createVect = (r, theta) => {
+        return new THREE.Vector3(Math.sin(theta)*r, 0, Math.cos(theta)*r)
+      };
+      let {random, PI:pi} = Math;
 
-
-      createCubeRigid(simple_geometry, simple_material, new THREE.Vector3(0, 0, 20), new THREE.Vector3(0, 0, -5));
-      createCubeRigid(simple_geometry, simple_material, new THREE.Vector3(0, 0, -20), new THREE.Vector3(0, 0, 5));
-
+      for (let i=0; i<10; i++){
+        createCubeRigid(simple_geometry, simple_material, createVect(random()*40, random()*pi*2).setY(30), createVect(random()*5+20, random()*pi*2));
+      }
       
 
       const animate = function () {
