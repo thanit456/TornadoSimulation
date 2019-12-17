@@ -78,7 +78,7 @@ class Solver {
 
     defaultTimestep = 1/60; // assume 60 FPS
 
-    constructor() {}
+    constructor()
 
     addEntity(entity, deriv) {
         this.entities.push(entity);
@@ -189,7 +189,7 @@ class Solver {
         // });
     }
     
-    // // It should check with all obstacles
+    //  It should check with all obstacles
     // intersection(point, otherPoint) {
     //     if (point != )
     // }
