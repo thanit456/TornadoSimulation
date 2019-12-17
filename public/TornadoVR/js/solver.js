@@ -72,6 +72,9 @@ class Solver {
     gravity = new THREE.Vector3(0.0, -9.8, 0.0);
 
     // tornado
+    tornadoCenter = new THREE.Vector3(0.0, 0.0, 0.0) //tornado high;
+    tornadog = 10;
+    tornadoB = new THREE.Vector3(0.0, 20, 0.0);
 
     defaultTimestep = 1/60; // assume 60 FPS
 
@@ -123,8 +126,35 @@ class Solver {
     calcForces() {
 
         this.derivatives.forEach((dp, idx) =>{
-            dp._forceAcc.add(this.gravity);
 
+            const dragConst = -0.001;
+
+            let entity = this.entities[idx];
+
+            // suck by tornado
+            let suckForceXZ = (new THREE.Vector3().subVectors(this.tornadoCenter, entity.position)).normalize();
+            // lesser by distance
+            suckForceXZ.multiplyScalar(5000/Math.pow(this.tornadoCenter.distanceTo(entity.position), 2));
+            
+            //suckForceXZ.y = 0.0;
+            
+            let drag = new THREE.Vector3().copy(entity.velocity);
+            drag.multiplyScalar(dragConst);
+
+            let suckForceY = (new THREE.Vector3(0, 10, 0));
+
+            let magneticForce = new THREE.Vector3().crossVectors(entity.velocity, this.tornadoB);
+            magneticForce.multiplyScalar(-1/5000);
+
+            //if (entity.position.y < this.tornadoCenter.y)
+            if (true)
+            {
+                dp._forceAcc.add(suckForceXZ);
+                //dp._forceAcc.add(suckForceY);
+                dp._forceAcc.add(magneticForce);
+                //dp._forceAcc.add(this.gravity);
+                dp._forceAcc.add(drag);
+            }
             // B
             // let F = new THREE.Vector3(0, 0, 0);
             // F.crossVectors(point.velocity, this.B);
