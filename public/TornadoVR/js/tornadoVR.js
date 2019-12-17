@@ -305,6 +305,7 @@ function init()
 }
 
 function rebuildParticles() {
+	// TODO debug 
 	console.log('rebuildParticles' + scene.children);
 	
 	B.x = particleOptions.betaX;
@@ -390,6 +391,7 @@ function rebuildParticles() {
 
 	// set new solver
 	solver = new Solver();  
+	_createParticleParticle();
 	
 }
 
@@ -505,7 +507,7 @@ function update()
 	lastFrameTime = currFrameTime;
 	currFrameTime = lastFrameTime + dt;
 
-	generateGroundParticle();
+	//generateGroundParticle();
 	
 	if ( keyboard.pressed("z") ) 
 	{	// do something   
@@ -559,13 +561,13 @@ function generateGroundParticle()
 function _createParticleParticle() 
 {	
 	let mesh = new THREE.Mesh(geometry, material);
-	let pos = new THREE.Vector3(10*Math.random(), 10*Math.random(), 10*Math.random());
+	let pos = new THREE.Vector3(100, 100, 100);
 	mesh.position.copy(pos);
 	let particle = new Particle({
 		mesh: mesh,
 		mass: 0.001 + Math.random()*particleMassChaos,
 		position: new THREE.Vector3().copy(pos),
-		velocity: new THREE.Vector3(Math.random(), Math.random(), Math.random())
+		velocity: new THREE.Vector3()
 	});
 	solver.addParticle(particle);
 	scene.add(mesh);		

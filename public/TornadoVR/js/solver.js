@@ -85,7 +85,7 @@ class Solver {
     gravity = new THREE.Vector3(0.0, -9.8, 0.0);
     B = new THREE.Vector3(0, 20, 0);
     // tornado
-    tornadoCenter = new THREE.Vector3(0.0, 0.0, 0.0) //tornado high;
+    tornadoCenter = new THREE.Vector3(0.0, 200, 0.0) //tornado high;
     tornadog = 10;
     tornadoB = new THREE.Vector3(0.0, 20, 0.0);
 
@@ -130,30 +130,30 @@ class Solver {
         this.derivatives.forEach((dp, idx) =>{
             const entity = this.entities[idx];
             
-            dp._forceAcc.add(this.gravity);
+            const distToEye_2 = Math.pow(entity.position.x - this.tornadoCenter.x,2) + Math.pow(entity.position.z - this.tornadoCenter.z,2);
             
-            const dragConst = -0.0001;
-            
-            // suck by tornado
-            let suckForceXZ = (new THREE.Vector3().subVectors(this.tornadoCenter, entity.position)).normalize();
+            const dirToEye = (new THREE.Vector3()).subVectors(this.tornadoCenter, entity.position);
+            dirToEye.y = 0.0;
+            dirToEye.normalize();
+
+            // suck by tornad
+            let suckOffset = (new THREE.Vector3()).crossVectors(dirToEye)
+            let suckForceXZ = (new THREE.Vector3()).copy(dirToEye);
+
             // lesser by distance
-            suckForceXZ.multiplyScalar(5000/Math.pow(this.tornadoCenter.distanceTo(entity.position), 2));
+            suckForceXZ.multiplyScalar( 1000 / Math.max(distToEye_2, 1));
             
-            //suckForceXZ.y = 0.0;
-            
-            let drag = new THREE.Vector3().copy(entity.velocity);
-            drag.multiplyScalar(dragConst);
 
-            let suckForceY = (new THREE.Vector3(0, 10, 0));
+            let suckForceY = (new THREE.Vector3(0, 11, 0));
 
-            let magneticForce = new THREE.Vector3().crossVectors(entity.velocity, this.tornadoB);
-            magneticForce.multiplyScalar(-1/5000);
+            //let magneticForce = new THREE.Vector3().crossVectors(entity.velocity, this.tornadoB);
+            //magneticForce.multiplyScalar(-100/distToEye_2);
 
             //if (entity.position.y < this.tornadoCenter.y)
-            dp._forceAcc.add(this.gravity);
+            // dp._forceAcc.add(this.gravity);
             if (true)
             {
-                //dp._forceAcc.add(suckForceXZ);
+                dp._forceAcc.add(suckForceXZ);
                 //dp._forceAcc.add(suckForceY);
                 //dp._forceAcc.add(magneticForce);
                 //dp._forceAcc.add(drag);
@@ -189,6 +189,7 @@ class Solver {
 
         // collide ground
 
+        /*
         // collision
         this.rigidbodies.forEach((point, idx) => {
             const deriv = this.derivatives[idx];
@@ -237,10 +238,11 @@ class Solver {
             const deriv = this.derivatives_rigid[idx];
             rb.update(deriv, minHit);
         });
+        */
 
         this.particles.forEach((p, idx) => {
             const deriv = this.derivatives_particle[idx];
-            p.update(deriv, minHit);
+            p.update(deriv, dt);
         })
 
         // if (hit) {
