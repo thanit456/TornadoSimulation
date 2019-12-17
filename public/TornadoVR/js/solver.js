@@ -35,7 +35,7 @@ class Solver {
     derivatives = [];
     gravity = 9.8;
     defaultTimestep = 1/60; // assume 60 FPS
-    B = new THREE.Vector3(0, 0.1, 0);
+    B = new THREE.Vector3(0, 1, 0);
 
     constructor(gravity) {
         this.gravity = gravity || 9.8;

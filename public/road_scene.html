@@ -35,7 +35,7 @@
         cube.t = 0;
         const particle = new Particle({
           mass: 1,
-          velocity: new THREE.Vector3(0, 0, 0),
+          velocity: new THREE.Vector3(Math.random()*10, 0, Math.random()*10),
           position: cube.position,
           _forceAcc: new THREE.Vector3(0, 0, 0),
         });
