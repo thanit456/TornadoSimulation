@@ -1,4 +1,4 @@
-class Particle {
+class entity {
     position;
     velocity;
     _forceAcc;
@@ -9,29 +9,27 @@ class Particle {
         this.velocity = velocity ? new THREE.Vector3().copy(velocity) : new THREE.Vector3(0, 0, 0);
         this._forceAcc = _forceAcc ? new THREE.Vector3().copy(_forceAcc) : new THREE.Vector3(0, 0, 0);
     }
-
+    
     update(derivative, dt) {
+        this.subUpdate(dt);
         this.position.add(derivative.position.multiplyScalar(dt));
         this.velocity.add(derivative.velocity.multiplyScalar(dt));
+    }
+    
+    subUpdate(dt) {}; //for each entity to have it own update
+}
+
+class Particle extends entity {
+    constructor({mass, position, velocity, _forceAcc}){
+        super({mass, position, velocity, _forceAcc});
     }
 }
 
-class RigidBody {
-    position;
-    velocity;
-    _forceAcc;
-    mass;
+class RigidBody extends entity {
     size;
-    constructor({mass, position, velocity, _forceAcc, size}) {
-        this.mass = mass;
-        this.position = position ? new THREE.Vector3().copy(position) : new THREE.Vector3(0, 0, 0);
-        this.velocity = velocity ? new THREE.Vector3().copy(velocity) : new THREE.Vector3(0, 0, 0);
-        this._forceAcc = _forceAcc ? new THREE.Vector3().copy(_forceAcc) : new THREE.Vector3(0, 0, 0);
+    constructor({mass, position, velocity, _forceAcc, size}){
+        super({mass, position, velocity, _forceAcc});
         this.size = size;
-    }
-    update(derivative, dt) {
-        this.position.add(derivative.position.multiplyScalar(dt));
-        this.velocity.add(derivative.velocity.multiplyScalar(dt));
     }
 }
 
@@ -49,41 +47,56 @@ const addVector = (v, x, y, z) => {
 
 
 class Solver {
-    points = [];
+    entities = [];
+    derivatives = [];
+
+    particle = [];
+    derivatives_particle = [];
+
     rigidbodies = [];
     derivatives_rigid = [];
-    derivatives = [];
-    gravity = 9.8;
-    defaultTimestep = 1/60; // assume 60 FPS
-    B = new THREE.Vector3(0, 1, 0);
 
-    constructor(gravity) {
-        this.gravity = gravity || 9.8;
+    // gravity
+    gravity = new THREE.Vector3(0.0, -9.8, 0.0);
+
+    // tornado
+
+    defaultTimestep = 1/60; // assume 60 FPS
+
+    constructor() {
+        
+    }
+
+    addEntity(entity, deriv) {
+        this.entities.push(entity);
+        this.derivatives.push(deriv);
     }
 
     addParticle(particle) {
-        this.points.push(particle);
-        this.derivatives.push(new Particle({
+        let deriv = new Particle({
             ...particle,
-        }));
+        })
+        this.particle.push(particle);
+        this.derivatives_particle.push(deriv);
+
+        this.addEntity(particle, deriv);
     }
 
     addRigidBody(rigidbody) {
-        this.rigidbodies.push(rigidbody);
-        this.derivatives_rigid.push(new RigidBody({
+        let deriv = new rigidbody({
             ...rigidbody,
-        }));
+        })
+        this.rigidbodies.push(rigidbody);
+        this.derivatives_rigid.push(deriv);
+
+        this.addEntity(rigidbody, deriv);
     }
 
     clearForces() {
         this.derivatives.forEach(dp => {
             setVector(dp._forceAcc, 0, 0, 0);
         });
-        this.derivatives_rigid.forEach(dp => {
-            setVector(dp._forceAcc, 0, 0, 0);
-        });
     }
-
 
     intersection(obj1, obj2) {
         let type1 = Object.prototype.toString.call(obj1);
@@ -98,19 +111,20 @@ class Solver {
     }
 
     calcForces() {
+
         this.derivatives.forEach((dp, idx) =>{
-            let point = this.points[idx];
+            let entity = this.entities[idx];
+            dp._forceAcc.add(this.gravity);
             addVector(dp._forceAcc, 0, this.gravity, 0);
 
-            let F = new THREE.Vector3(0, 0, 0);
-            
-            F.crossVectors(point.velocity, this.B);
-            dp._forceAcc.add(F);
+            // B
+            // let F = new THREE.Vector3(0, 0, 0);
+            // F.crossVectors(point.velocity, this.B);
+            // dp._forceAcc.add(F);
         });
 
-    }
-
-    calcForces_rigid() {
+        // calculate rigid body force
+        /*
         this.derivatives_rigid.forEach((dp, idx) =>{
             let rigidbody = this.rigidbodies[idx];
             addVector(dp._forceAcc, 0, this.gravity, 0);
@@ -120,22 +134,24 @@ class Solver {
             F.crossVectors(rigidbody.velocity, this.B);
             dp._forceAcc.add(F);
         });
+        */
 
-        
+    }
+
+    calcForces_rigid() {
 
     }
 
 
-    particleDerivs() {
+    calcDerivs() {
         this.derivatives.forEach(dp => {
             dp.position = dp.velocity;
             dp.velocity = dp._forceAcc.multiplyScalar(1/dp.mass);
         });
-
-        this.derivatives_rigid.forEach(dp => {
-            dp.position = dp.velocity;
-            dp.velocity = dp._forceAcc.multiplyScalar(1/dp.mass);
-        });
+        // this.derivatives_rigid.forEach(dp => {
+        //     dp.position = dp.velocity;
+        //     dp.velocity = dp._forceAcc.multiplyScalar(1/dp.mass);
+        // });
     }
     
     // // It should check with all obstacles
@@ -143,11 +159,11 @@ class Solver {
     //     if (point != )
     // }
 
-    step(dt) {
+    step(dt) { // update derivatives to entities attribute
         dt = dt || this.defaultTimestep;
-        this.points.forEach((point, idx) => {
+        this.entities.forEach((entity, idx) => {
             const deriv = this.derivatives[idx];
-            point.update(deriv, dt);
+            entity.update(deriv, dt);
             // this.points.forEach((otherPoint, i) => {
             //     if (intersection(point, otherPoint)) {
 
@@ -157,10 +173,10 @@ class Solver {
     }
 
     update() {
-        this.clearForces();
-        this.calcForces();
-        this.particleDerivs();
-        this.step();
+        this.clearForces(); // clear old sum force
+        this.calcForces(); // calculate new sum force
+        this.calcDerivs(); // calc Derivatives
+        this.step(); // update derivatives to entities
     }
 
 }

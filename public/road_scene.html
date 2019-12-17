@@ -61,6 +61,7 @@
         solver.addRigidBody(rigidbody);
       }
       
+      console.log(solver);
       camera.position.z = 20;
       camera.position.y = 20;
 
@@ -104,20 +105,20 @@
       const animate = function () {
         requestAnimationFrame( animate );
         solver.update();
-        // if (frameNo%5 == 0) {
-        //   createCube(createGeometry(1), material);
-        // }
+        if (frameNo%5 == 0) {
+          createCube(createGeometry(1), material);
+        }
 
-        // cubes.forEach(cube => {
-        //   // console.log('update cube');
-        //   cube.rotation.x += 0.01;
-        //   cube.rotation.y += 0.01;
-        //   cube.t += time_step;
-        //   cube.position.x = cube.particleRef.position.x;
-        //   cube.position.y = cube.particleRef.position.y;
-        //   cube.position.z = cube.particleRef.position.z;
-        // })
-        // console.log('doge');
+        cubes.forEach(cube => {
+          // console.log('update cube');
+          cube.rotation.x += 0.01;
+          cube.rotation.y += 0.01;
+          cube.t += time_step;
+          cube.position.x = cube.particleRef.position.x;
+          cube.position.y = cube.particleRef.position.y;
+          cube.position.z = cube.particleRef.position.z;
+        })
+        console.log('doge');
 
         frameNo++;
         renderer.render( scene, camera );
