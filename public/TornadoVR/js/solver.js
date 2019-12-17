@@ -37,6 +37,12 @@ class Particle extends Entity {
     }
 }
 
+class Tail extends Entity {
+    constructor() {
+        
+    }
+}
+
 class RigidBody extends Entity {
     size;
     constructor({mesh, mass, position, velocity, _forceAcc, size}){
