@@ -12,8 +12,10 @@ class entity {
     
     update(derivative, dt) {
         this.subUpdate(dt);
-        this.position.add(derivative.position.multiplyScalar(dt));
-        this.velocity.add(derivative.velocity.multiplyScalar(dt));
+        let dP = new THREE.Vector3().copy(derivative.position).multiplyScalar(dt);
+        let dV = new THREE.Vector3().copy(derivative.velocity).multiplyScalar(dt);
+        this.position.add(dP);
+        this.velocity.add(dV);
     }
     
     subUpdate(dt) {}; //for each entity to have it own update
@@ -29,7 +31,7 @@ class RigidBody extends entity {
     size;
     constructor({mass, position, velocity, _forceAcc, size}){
         super({mass, position, velocity, _forceAcc});
-        this.size = size;
+        this.size = size || 1;
     }
 }
 
@@ -45,6 +47,16 @@ const addVector = (v, x, y, z) => {
     v.z += z;
 }
 
+const intersection = (obj1, obj2) => {
+    // let type1 = Object.prototype.toString.call(obj1);
+    // let type2 = Object.prototype.toString.call(obj2);
+
+
+    // TEMP code
+    return obj1.position.distanceTo(obj2.position) < obj1.size + obj2.size;
+
+}
+
 
 class Solver {
     entities = [];
@@ -57,11 +69,12 @@ class Solver {
     derivatives_rigid = [];
 
     // gravity
-    gravity = new THREE.Vector3(0.0, -9.8, 0.0);
+    gravity = new THREE.Vector3(0.0, 0, 0.0);
 
     // tornado
 
     defaultTimestep = 1/60; // assume 60 FPS
+
 
     constructor() {
         
@@ -83,7 +96,7 @@ class Solver {
     }
 
     addRigidBody(rigidbody) {
-        let deriv = new rigidbody({
+        let deriv = new RigidBody({
             ...rigidbody,
         })
         this.rigidbodies.push(rigidbody);
@@ -97,45 +110,13 @@ class Solver {
             setVector(dp._forceAcc, 0, 0, 0);
         });
     }
-
-    intersection(obj1, obj2) {
-        let type1 = Object.prototype.toString.call(obj1);
-        let type2 = Object.prototype.toString.call(obj2);
-
-
-        // TEMP code
-        if (obj1.position.distanceTo(obj2.position)) {
-
-        }    
     
-    }
-
     calcForces() {
 
         this.derivatives.forEach((dp, idx) =>{
             let entity = this.entities[idx];
-            dp._forceAcc.add(this.gravity);
-            addVector(dp._forceAcc, 0, this.gravity, 0);
-
-            // B
-            // let F = new THREE.Vector3(0, 0, 0);
-            // F.crossVectors(point.velocity, this.B);
-            // dp._forceAcc.add(F);
+            dp._forceAcc.add(this.gravity.multiplyScalar(entity.mass)); 
         });
-
-        // calculate rigid body force
-        /*
-        this.derivatives_rigid.forEach((dp, idx) =>{
-            let rigidbody = this.rigidbodies[idx];
-            addVector(dp._forceAcc, 0, this.gravity, 0);
-
-            let F = new THREE.Vector3(0, 0, 0);
-            
-            F.crossVectors(rigidbody.velocity, this.B);
-            dp._forceAcc.add(F);
-        });
-        */
-
     }
 
     calcForces_rigid() {
@@ -144,9 +125,10 @@ class Solver {
 
 
     calcDerivs() {
-        this.derivatives.forEach(dp => {
-            dp.position = dp.velocity;
-            dp.velocity = dp._forceAcc.multiplyScalar(1/dp.mass);
+        this.derivatives.forEach((dp, idx) => {
+            const entity = this.entities[idx];
+            dp.position.copy(entity.velocity);
+            dp.velocity.copy(dp._forceAcc.multiplyScalar(1/dp.mass));
         });
         // this.derivatives_rigid.forEach(dp => {
         //     dp.position = dp.velocity;
@@ -161,15 +143,51 @@ class Solver {
 
     step(dt) { // update derivatives to entities attribute
         dt = dt || this.defaultTimestep;
-        this.entities.forEach((entity, idx) => {
+        // store info for revert
+        let hit = false;
+        let minHit = dt;
+        let minHitParts = {};
+        this.rigidbodies.forEach((point, idx) => {
             const deriv = this.derivatives[idx];
-            entity.update(deriv, dt);
-            // this.points.forEach((otherPoint, i) => {
-            //     if (intersection(point, otherPoint)) {
+            point.update(deriv, dt);
+            this.rigidbodies.forEach((otherPoint, idx2) => {
+                if (idx == idx2) return; // don't match self
+                const otherDeriv = this.derivatives_rigid[idx2];
+                if (intersection(point, otherPoint)) {
 
-            //     }
-            // })
-        })
+                    let lo=0, hi=dt, mid;
+                    while (hi-lo > 1e-3) { // reasonable difference
+                        mid = (lo+hi)/2;
+                        point.update(deriv, mid-dt);
+                        otherPoint.update(otherDeriv, mid);
+
+                        if (intersection(point, otherPoint)) {
+                            hi = mid;
+                            hit = true;
+                            if (mid < minHit) {
+                                minHit = mid;
+                                minHitParts = {point, otherPoint};
+                            }
+                        } else {
+                            lo = mid; 
+                        }
+                        
+                        otherPoint.update(otherDeriv, -mid);
+                        point.update(deriv, dt-mid);
+                    }
+                }
+            })
+            point.update(deriv, -dt);
+        }) 
+        this.rigidbodies.forEach((rb, idx) => {
+            const deriv = this.derivatives_rigid[idx];
+            rb.update(deriv, dt);
+        });
+        if (hit) {
+            console.log("min Hit distance is ", minHit);
+        } else {
+            console.log("no hit");
+        }
     }
 
     update() {
