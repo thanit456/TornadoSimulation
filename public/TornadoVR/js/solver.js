@@ -91,7 +91,9 @@ class Solver {
 
     defaultTimestep = 1/60; // assume 60 FPS
 
-    constructor()
+    constructor() {
+        
+    }
 
     addEntity(entity, deriv) {
         this.entities.push(entity);
@@ -127,12 +129,11 @@ class Solver {
         // temporary remove gravity
         this.derivatives.forEach((dp, idx) =>{
             const entity = this.entities[idx];
+            
             dp._forceAcc.add(this.gravity);
-
-            const dragConst = -0.001;
-
-            let entity = this.entities[idx];
-
+            
+            const dragConst = -0.0001;
+            
             // suck by tornado
             let suckForceXZ = (new THREE.Vector3().subVectors(this.tornadoCenter, entity.position)).normalize();
             // lesser by distance
@@ -149,18 +150,14 @@ class Solver {
             magneticForce.multiplyScalar(-1/5000);
 
             //if (entity.position.y < this.tornadoCenter.y)
+            dp._forceAcc.add(this.gravity);
             if (true)
             {
-                dp._forceAcc.add(suckForceXZ);
+                //dp._forceAcc.add(suckForceXZ);
                 //dp._forceAcc.add(suckForceY);
-                dp._forceAcc.add(magneticForce);
-                //dp._forceAcc.add(this.gravity);
-                dp._forceAcc.add(drag);
+                //dp._forceAcc.add(magneticForce);
+                //dp._forceAcc.add(drag);
             }
-            // B
-            let F = new THREE.Vector3(0, 0, 0);
-            F.crossVectors(entity.velocity, this.B);
-            dp._forceAcc.add(F);
         });
     }
 
@@ -241,6 +238,11 @@ class Solver {
             rb.update(deriv, minHit);
         });
 
+        this.particles.forEach((p, idx) => {
+            const deriv = this.derivatives_particle[idx];
+            p.update(deriv, minHit);
+        })
+
         // if (hit) {
         //     console.log("min Hit distance is ", minHit);
             
@@ -253,12 +255,12 @@ class Solver {
         //     });
         // }
         //
-
+        
         // REAL CONSTRAINT !!
         this.entities.forEach(e => {
             if (e.position.y <= 0){
                 const n = new THREE.Vector3(0, 1, 0); // vector along p1 -- p2
-                flip(e.velocity, n, 0.3);
+                flip(e.velocity, n, 0.1);
             }
         })
     }
