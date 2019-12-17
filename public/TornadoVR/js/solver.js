@@ -96,10 +96,18 @@ class Solver {
     gravity = new THREE.Vector3(0.0, -9.8, 0.0);
     B = new THREE.Vector3(0, 20, 0);
     // tornado
+    tornadoCenter = new THREE.Vector3(0.0, 0.0, 0.0) //tornado high;
+    tornadog = 10;
+    tornadoB = new THREE.Vector3(0.0, 20, 0.0);
 
     defaultTimestep = 1/60; // assume 60 FPS
 
-    constructor() {}
+    tries = 0;
+    MAX_TRIES = 10;
+
+    constructor() {
+        
+    }
 
     addEntity(entity, deriv) {
         this.entities.push(entity);
@@ -135,12 +143,35 @@ class Solver {
         // temporary remove gravity
         this.derivatives.forEach((dp, idx) =>{
             const entity = this.entities[idx];
+            
             dp._forceAcc.add(this.gravity);
+            
+            const dragConst = -0.0001;
+            
+            // suck by tornado
+            let suckForceXZ = (new THREE.Vector3().subVectors(this.tornadoCenter, entity.position)).normalize();
+            // lesser by distance
+            suckForceXZ.multiplyScalar(5000/Math.pow(this.tornadoCenter.distanceTo(entity.position), 2));
+            
+            //suckForceXZ.y = 0.0;
+            
+            let drag = new THREE.Vector3().copy(entity.velocity);
+            drag.multiplyScalar(dragConst);
 
-            // B
-            // let F = new THREE.Vector3(0, 0, 0);
-            // F.crossVectors(entity.velocity, this.B);
-            // dp._forceAcc.add(F);
+            let suckForceY = (new THREE.Vector3(0, 10, 0));
+
+            let magneticForce = new THREE.Vector3().crossVectors(entity.velocity, this.tornadoB);
+            magneticForce.multiplyScalar(-1/5000);
+
+            //if (entity.position.y < this.tornadoCenter.y)
+            dp._forceAcc.add(this.gravity);
+            if (true)
+            {
+                //dp._forceAcc.add(suckForceXZ);
+                //dp._forceAcc.add(suckForceY);
+                //dp._forceAcc.add(magneticForce);
+                //dp._forceAcc.add(drag);
+            }
         });
     }
 
@@ -157,13 +188,12 @@ class Solver {
         // });
     }
     
-    // // It should check with all obstacles
+    //  It should check with all obstacles
     // intersection(point, otherPoint) {
     //     if (point != )
     // }
 
     step(dt) { // update derivatives to entities attribute
-        dt = dt || this.defaultTimestep;
         // store info for revert
         let hit = false;
         let minHit = dt;
@@ -173,39 +203,41 @@ class Solver {
         // collide ground
 
         // collision
-        this.rigidbodies.forEach((point, idx) => {
-            const deriv = this.derivatives[idx];
-            point.update(deriv, dt);
-            this.rigidbodies.forEach((otherPoint, idx2) => {
-                if (idx == idx2) return; // don't match self
-                const otherDeriv = this.derivatives_rigid[idx2];
-                if (intersection(point, otherPoint)) {
-
-                    let lo=0, hi=dt, mid;
-                    while (hi-lo > 1e-2) { // reasonable difference
-                        mid = (lo+hi)/2;
-                        point.update(deriv, mid-dt);
-                        otherPoint.update(otherDeriv, mid);
-
-                        if (intersection(point, otherPoint)) {
-
-                            hi = mid;
-                            hit = true;
-                            if (mid < minHit) {
-                                minHit = mid;
-                                minHitParts = {point: idx, otherPoint: idx2};
+        if (this.tries < this.MAX_TRIES) {
+            this.rigidbodies.forEach((point, idx) => {
+                const deriv = this.derivatives[idx];
+                point.update(deriv, dt);
+                this.rigidbodies.forEach((otherPoint, idx2) => {
+                    if (idx == idx2) return; // don't match self
+                    const otherDeriv = this.derivatives_rigid[idx2];
+                    if (intersection(point, otherPoint)) {
+    
+                        let lo=0, hi=dt, mid;
+                        while (hi-lo > 1e-2) { // reasonable difference
+                            mid = (lo+hi)/2;
+                            point.update(deriv, mid-dt);
+                            otherPoint.update(otherDeriv, mid);
+    
+                            if (intersection(point, otherPoint)) {
+    
+                                hi = mid;
+                                hit = true;
+                                if (mid < minHit) {
+                                    minHit = mid;
+                                    minHitParts = {point: idx, otherPoint: idx2};
+                                }
+                            } else {
+                                lo = mid; 
                             }
-                        } else {
-                            lo = mid; 
+                            
+                            otherPoint.update(otherDeriv, -mid);
+                            point.update(deriv, dt-mid);
                         }
-                        
-                        otherPoint.update(otherDeriv, -mid);
-                        point.update(deriv, dt-mid);
                     }
-                }
-            })
-            point.update(deriv, -dt);
-        }) 
+                })
+                point.update(deriv, -dt);
+            }) 
+        }
 
         this.rigidbodies.forEach((rb, idx) => {
             if (idx != minHitParts.point && idx != minHitParts.otherPoint) {
@@ -214,6 +246,10 @@ class Solver {
             }
         });
         
+        this.particles.forEach((p, idx) => {
+            const deriv = this.derivatives_particle[idx];
+            p.update(deriv, minHit);
+        })
         // colliding
         if (minHitParts.point){
             const x1 = this.rigidbodies[minHitParts.point];
@@ -224,7 +260,17 @@ class Solver {
                 const deriv = this.derivatives_particle[idx];
                 part.update(deriv, minHit);
             })
+            this._update(dt-minHit);
+        } else {
+            this.entities.forEach(e => {
+                if (e.position.y <= 0){
+                    const n = new THREE.Vector3(0, 1, 0); // vector along p1 -- p2
+                    flip(e.velocity, n, 0.1);
+                }
+            })
         }
+
+        
 
         // if (hit) {
         //     console.log("min Hit distance is ", minHit);
@@ -238,14 +284,10 @@ class Solver {
         //     });
         // }
         //
-
+        
         // REAL CONSTRAINT !!
-        this.entities.forEach(e => {
-            if (e.position.y <= 0){
-                const n = new THREE.Vector3(0, 1, 0); // vector along p1 -- p2
-                flip(e.velocity, n, 0.9);
-            }
-        })
+      
+        
     }
 
     clearDestroyEntity() {
@@ -281,12 +323,18 @@ class Solver {
         }
     
     }
-
     update() {
+        this.tries =0 ;
+        this._update();
+    }
+
+    _update(dt) {
+        dt = dt || this.defaultTimestep;
+        this.tries++;
         this.clearForces(); // clear old sum force
         this.calcForces(); // calculate new sum force
         this.calcDerivs(); // calc Derivatives
-        this.step(); // update derivatives to entities
+        this.step(dt); // update derivatives to entities
         this.clearDestroyEntity();
     }
 

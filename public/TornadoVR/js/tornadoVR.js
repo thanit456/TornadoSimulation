@@ -28,7 +28,7 @@ let solver = new Solver();
 
 // global variable for particle
 let particleMassChaos = 0.010;
-let particleGenerateRate = 10; // per seconds
+let particleGenerateRate = 1; // per frame
 
 // particle generate
 let lastParticleGenerateTime = 0;
@@ -536,11 +536,13 @@ function update()
 
 function generateGroundParticle()
 {	
-	if (currFrameTime - lastParticleGenerateTime > 1/particleGenerateRate)
+
+	//if (currFrameTime - lastParticleGenerateTime >= 1/particleGenerateRate)
+	for (let i=0; i<particleGenerateRate; i++)
 	{
 		lastParticleGenerateTime = currFrameTime;
 		let mesh = new THREE.Mesh(geometry, material);
-		let pos = new THREE.Vector3(1000*Math.random() - 500, 20, 1000*Math.random() - 500);
+		let pos = new THREE.Vector3(1000*Math.random() - 500, 100, 1000*Math.random() - 500);
 		mesh.position.copy(pos);
 		let particle = new Particle({
 			mesh: mesh,

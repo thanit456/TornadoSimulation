@@ -107,12 +107,15 @@
         return new THREE.Vector3(Math.sin(theta)*r, y || 0, Math.cos(theta)*r)
       };
       let {random, PI:pi} = Math;
+      const randInt = (n) => Math.floor(Math.random()*n)
 
       // createCubeRigid(simple_geometry, simple_material, createVect(20, pi*0.6, 0), createVect(-90, pi*0.6, 0));
       // createCubeRigid(simple_geometry, simple_material, createVect(10, pi*0.3, 0), createVect(-40, pi*0.3, 0));
       // createCubeRigid(simple_geometry, simple_material, createVect(40, pi*0.3, 0), createVect(-120, pi*0.3, 0));
-      for (let i=0; i<10; i++){
-        createCubeRigid(simple_geometry, simple_material, createVect(random()*40, random()*pi*2, 50), createVect(random()*5+20, random()*pi*2));
+      for (let i=0; i<20; i++){
+        createCubeRigid(simple_geometry, new THREE.MeshBasicMaterial({ 
+         color: (randInt(256) << 16) + (randInt(256) << 8) + (randInt(256))
+        }), createVect(random()*40, random()*pi*2, 50), createVect(random()*5+20, random()*pi*2));
         // createCube(simple_geometry, simple_material, createVect(random()*40, random()*pi*2, 50), createVect(random()*5+20, random()*pi*2));
       }
       
