@@ -69,6 +69,17 @@ const intersection = (obj1, obj2) => {
     return obj1.position.distanceTo(obj2.position) < obj1.size + obj2.size; //     
 }
 
+// assume elasticity
+const collide = (e1, e2) => {
+    let u1 = e1.velocity;
+    let u2 = e2.velocity;
+    let m1 = e1.mass;
+    let m2 = e2.mass;
+    let v1 = (u1.clone().multiplyScalar(m1-m2)).add(u2.clone().multiplyScalar(2*m2)).multiplyScalar(1/(m1+m2));
+    let v2 = (u1.clone().multiplyScalar(2*m2)).add(u2.clone().multiplyScalar(m2-m1)).multiplyScalar(1/(m1+m2));
+    e1.velocity.set(v1.x, v1.y, v1.z);
+    e2.velocity.set(v2.x, v2.y, v2.z);
+}
 
 
 class Solver {
@@ -127,9 +138,9 @@ class Solver {
             dp._forceAcc.add(this.gravity);
 
             // B
-            let F = new THREE.Vector3(0, 0, 0);
-            F.crossVectors(entity.velocity, this.B);
-            dp._forceAcc.add(F);
+            // let F = new THREE.Vector3(0, 0, 0);
+            // F.crossVectors(entity.velocity, this.B);
+            // dp._forceAcc.add(F);
         });
     }
 
@@ -197,18 +208,23 @@ class Solver {
         }) 
 
         this.rigidbodies.forEach((rb, idx) => {
-            if (idx == minHitParts.point || idx == minHitParts.otherPoint) {
-                const otherPointIdx = idx == minHitParts.point ? minHitParts.otherPoint : minHitParts.point;
-                const otherPoint = this.rigidbodies[otherPointIdx];
+            if (idx != minHitParts.point && idx != minHitParts.otherPoint) {
                 const deriv = this.derivatives_rigid[idx];
-                const n = new THREE.Vector3().copy(rb.position).sub(otherPoint.position).normalize(); // vector along p1 -- p2
-                // rb.update(deriv, minHit);
-                flip(rb.velocity, n, 1);
-                return;
+                rb.update(deriv, minHit);
             }
-            const deriv = this.derivatives_rigid[idx];
-            rb.update(deriv, minHit);
         });
+        
+        // colliding
+        if (minHitParts.point){
+            const x1 = this.rigidbodies[minHitParts.point];
+            const x2 = this.rigidbodies[minHitParts.otherPoint];
+            collide(x1, x2);
+    
+            this.particles.forEach((part, idx) => {
+                const deriv = this.derivatives_particle[idx];
+                part.update(deriv, minHit);
+            })
+        }
 
         // if (hit) {
         //     console.log("min Hit distance is ", minHit);
@@ -227,7 +243,7 @@ class Solver {
         this.entities.forEach(e => {
             if (e.position.y <= 0){
                 const n = new THREE.Vector3(0, 1, 0); // vector along p1 -- p2
-                flip(e.velocity, n, 0.3);
+                flip(e.velocity, n, 0.9);
             }
         })
     }
