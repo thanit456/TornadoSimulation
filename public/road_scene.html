@@ -30,28 +30,30 @@
       var simple_geometry = new THREE.BoxGeometry( 1, 1, 1 );
       var simple_material = new THREE.MeshBasicMaterial( { color: 0xff0000 } );
   
-      const createCube = (geometry, material) => {
+      const createCube = (geometry, material, position, velocity) => {
         let mesh = new THREE.Mesh( geometry, material);
         const particle = new Particle({
-          mass: 1,
-          velocity: new THREE.Vector3(Math.random()*10, 0, Math.random()*10),
-          position: new THREE.Vector3(Math.random()*10, Math.random()*10, Math.random()*10),
+          mass: 10,
+          mesh: mesh,
+          velocity: velocity || new THREE.Vector3(Math.random()*10, 0, Math.random()*10),
+          position: position || new THREE.Vector3(Math.random()*10, Math.random()*10, Math.random()*10),
           _forceAcc: new THREE.Vector3(0, 0, 0),
         });
         scene.add(mesh);
         solver.addParticle(particle);
-        return cube;
+        return mesh;
       }
 
-      const createCubeRigid = (geometry, material, position, velocity) => {
+      const createCubeRigid = (geometry, material , position, velocity) => {
         const mesh = new THREE.Mesh( geometry, material );
         mesh.position.copy(position);
         mesh.t = 0;
         const rigidbody = new RigidBody({
           mesh: mesh,
           mass: 5,
-          velocity: new THREE.Vector3(0, 0, 0),
-          position: new THREE.Vector3(Math.random()*10, Math.random()*10, Math.random()*10),
+          size: 1,
+          velocity: velocity || new THREE.Vector3(Math.random()*10, 0, Math.random()*10),
+          position: position || new THREE.Vector3(Math.random()*10, Math.random()*10, Math.random()*10),
           _forceAcc: new THREE.Vector3(0, 0, 0),
         });
         scene.add(mesh);
@@ -62,8 +64,8 @@
       }
       
       console.log(solver);
-      camera.position.z = -20;
-      camera.position.y = 40;
+      camera.position.z = 0;
+      camera.position.y = 100;
 
       camera.lookAt(0, 0, 0);
       
@@ -101,13 +103,20 @@
       //   }
                 
       // }
-      let createVect = (r, theta) => {
-        return new THREE.Vector3(Math.sin(theta)*r, 0, Math.cos(theta)*r)
+      let createVect = (r, theta, y) => {
+        return new THREE.Vector3(Math.sin(theta)*r, y || 0, Math.cos(theta)*r)
       };
       let {random, PI:pi} = Math;
+      const randInt = (n) => Math.floor(Math.random()*n)
 
-      for (let i=0; i<100; i++){
-        createCubeRigid(simple_geometry, simple_material, createVect(random()*40, random()*pi*2).setY(30), createVect(random()*5+20, random()*pi*2));
+      // createCubeRigid(simple_geometry, simple_material, createVect(20, pi*0.6, 0), createVect(-90, pi*0.6, 0));
+      // createCubeRigid(simple_geometry, simple_material, createVect(10, pi*0.3, 0), createVect(-40, pi*0.3, 0));
+      // createCubeRigid(simple_geometry, simple_material, createVect(40, pi*0.3, 0), createVect(-120, pi*0.3, 0));
+      for (let i=0; i<20; i++){
+        createCubeRigid(simple_geometry, new THREE.MeshBasicMaterial({ 
+         color: (randInt(256) << 16) + (randInt(256) << 8) + (randInt(256))
+        }), createVect(random()*40, random()*pi*2, 50), createVect(random()*5+20, random()*pi*2));
+        // createCube(simple_geometry, simple_material, createVect(random()*40, random()*pi*2, 50), createVect(random()*5+20, random()*pi*2));
       }
       
 
