@@ -4,8 +4,36 @@
 	Author: Rodolfo Aramayo
 	Date: May 2016
  */
+const randomVector3 = function(base, spread)
+{
+	var rand3 = new THREE.Vector3( Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5 );
+	return new THREE.Vector3().addVectors( base, new THREE.Vector3().multiplyVectors( spread, rand3 ) );
+}
 
+/////////////////
+// TWEEN CLASS //
+/////////////////
 
+function Tween(timeArray, valueArray)
+{
+	this.times  = timeArray || [];
+	this.values = valueArray || [];
+}
+
+Tween.prototype.lerp = function(t)
+{
+	var i = 0;
+	var n = this.times.length;
+	while (i < n && t > this.times[i])  
+		i++;
+	if (i == 0) return this.values[0];
+	if (i == n)	return this.values[n-1];
+	var p = (t - this.times[i-1]) / (this.times[i] - this.times[i-1]);
+	if (this.values[0] instanceof THREE.Vector3)
+		return this.values[i-1].clone().lerp( this.values[i], p );
+	else // its a float
+		return this.values[i-1] + p * (this.values[i] - this.values[i-1]);
+}
 
 // MAIN
 
@@ -35,12 +63,23 @@ var tailSpawnInterval = 0.02;
 var tailLifeSpan = 0.5; 
 var tailLifeSpanChaos = 3.0;
 var tailMaxLifeSpan = tailLifeSpan + tailLifeSpanChaos;
-var tailGeometry = new THREE.BoxGeometry( 9, 9, 9 );
+var tailGeometry = new THREE.BoxGeometry( 5, 5, 5 );
 var tailMaterial;
 
 var tracersMesh = [];
-var particles = [];
+
+
 var particleTails = []; // flap-tail
+var particleTailsReuse = [];
+var particleTailsAttribute = {};
+var particleTailsGeometry = new THREE.BufferGeometry();
+var particleTailsMesh = new THREE.Mesh();
+
+var particleArray = [];
+var particleAttribute = {};
+var particleGeometry = new THREE.BufferGeometry();
+var particleMaterial = new THREE.ShaderMaterial();
+var particleMesh = new THREE.Mesh();
 
 var mesh;
 //global physics properties
@@ -172,26 +211,10 @@ function init()
 	////////////
 	// CUSTOM //
 	////////////
-
-
 	var gridXZ = new THREE.GridHelper(100, 10);
 	gridXZ.setColors( new THREE.Color(0x006600), new THREE.Color(0x006600) );
 	gridXZ.position.set( 100,0,100 );
-	scene.add(gridXZ);
-	
-	// var gridXY = new THREE.GridHelper(100, 10);
-	// gridXY.position.set( 100,100,0 );
-	// gridXY.rotation.x = Math.PI/2;
-	// gridXY.setColors( new THREE.Color(0x000066), new THREE.Color(0x000066) );
-	// scene.add(gridXY);
-
-	// var gridYZ = new THREE.GridHelper(100, 10);
-	// gridYZ.position.set( 0,100,100 );
-	// gridYZ.rotation.z = Math.PI/2;
-	// gridYZ.setColors( new THREE.Color(0x660000), new THREE.Color(0x660000) );
-	// scene.add(gridYZ);
-	
-	
+	scene.add(gridXZ);	
 
 	// direction (normalized), origin, length, color(hex)
 	var origin = new THREE.Vector3(0+100,0,0+100);
@@ -199,7 +222,36 @@ function init()
 	var direction = new THREE.Vector3().subVectors(terminus, origin).normalize();
 	var arrow = new THREE.ArrowHelper(direction, origin, 100, 0x884400);
 	scene.add(arrow);
+
+	// particle
+	particleGeometry = new THREE.BufferGeometry();
+	particleMaterial = new THREE.ShaderMaterial( 
+	{
+		uniforms: 
+		{
+			texture:   { type: "t", value: new THREE.TextureLoader().load( 'img/smokeparticle.png' ), },
+		},
+		vertexShader:   document.getElementById( 'particleVertexShader' ).textContent,
+		fragmentShader: document.getElementById( 'particleFragmentShader' ).textContent,
+		transparent: true,  alphaTest: 0.5, // if having transparency issues, try including: alphaTest: 0.5, 
+		blending: THREE.NormalBlending, depthTest: false
+	});
+	particleAttribute = {		
+		size:  [],
+		color: [],
+		opacity: [],
+		visible: [],
+	}
+	particleMesh = new THREE.Points();
 	
+	particleTailsAttribute = {
+		position: [],
+		size:  [],
+		color: [],
+		opacity: [],
+		visible: [],
+	}
+	particleTailsMesh = new THREE.Points();
 	
 	if (stereo)
 	{
@@ -225,33 +277,11 @@ function init()
 		instantRespawn:false,
 		tracer:false,
 
+		tailParticleCount: 1000,
 		tailSpawnInterval:0.02,
 		tailLifeSpan:0.5,
 		tailLifeSpanChaos:3.0
 
-	};
-
-	uniforms1 = {
-		time: { type: "f", value: 1.0 },
-		resolution: { type: "v2", value: new THREE.Vector2() }
-	};
-	uniforms2 = {
-		time: { type: "f", value: 1.0 },
-		resolution: { type: "v2", value: new THREE.Vector2() },
-		texture: { type: "t", value: new THREE.TextureLoader().load( "img/disturb.jpg" ) }
-	};
-	uniforms2.texture.value.wrapS = uniforms2.texture.value.wrapT = THREE.RepeatWrapping;
-	uniforms3 = {
-		"uDirLightPos"		: { type: "v3", value: new THREE.Vector3(1,0,0) },
-		"uDirLightColor"		: { type: "c" , value: new THREE.Color( 0xeeeeee ) },
-		"uAmbientLightColor"	: { type: "c" , value: new THREE.Color( 0x050505 ) },
-		"uBaseColor"		: { type: "c" , value: new THREE.Color( 0xff0000 ) }
-	};
-	uniforms4 = {
-		"uDirLightPos"		: { type: "v3", value: new THREE.Vector3(1,0,0) },
-		"uDirLightColor"		: { type: "c" , value: new THREE.Color( 0xeeeeee ) },
-		"uAmbientLightColor"	: { type: "c" , value: new THREE.Color( 0x050505 ) },
-		"uBaseColor"		: { type: "c" , value: new THREE.Color( 0xffffff ) }
 	};
 
 	rebuildParticles();
@@ -270,6 +300,7 @@ function init()
 	h.add( particleOptions, "instantRespawn" ).name( "instant respawn" ).onChange( rebuildParticles );
 	h.add( particleOptions, "tracer" ).name( "show tracer" ).onChange( rebuildParticles );
 	// tail
+	h.add( particleOptions, "tailParticleCount", 0, 1000, 50 ).name( "tail particle count").onChange( rebuildParticles );
 	h.add( particleOptions, "tailSpawnInterval", 0, 1, 0.001 ).name( "tail spawn interval" ).onChange( rebuildParticles );
 	h.add( particleOptions, "tailLifeSpan", 0, 20, 0.05 ).name( "tail life span" ).onChange( rebuildParticles );
 	h.add( particleOptions, "tailLifeSpanChaos", 0, 20, 0.05 ).name( "tail life span chaos").onChange( rebuildParticles );
@@ -286,34 +317,12 @@ function init()
 	h.add( particleOptions, "tornadoFactor", 0, 100, 25 ).name( "Tornado Factor" ).onChange( rebuildParticles );
 
 	h.add( particleOptions, "betaLiftChaos", 1, 50, 1 ).name( "beta Lift Chaos" ).onChange( rebuildParticles );
-
-	if (!window.mobilecheck())
-	{
-		h = gui.addFolder( "Shader Options" );
-
-		var shaderSelectionController = {
-			shader1:function(){ shaderSelection = 0; rebuildParticles();},
-			shader2:function(){ shaderSelection = 1; rebuildParticles();},
-			shader3:function(){ shaderSelection = 2; rebuildParticles();},
-			shader4:function(){ shaderSelection = 3; rebuildParticles();},																														
-			shader5:function(){ shaderSelection = 4; rebuildParticles();},
-			shader6:function(){ shaderSelection = 5; rebuildParticles();}																														
-		};
-
-		h.add(shaderSelectionController,'shader1').name("Monjori Shader");
-		h.add(shaderSelectionController,'shader2').name("Shader 2");
-		h.add(shaderSelectionController,'shader3').name("Shader 3");
-		h.add(shaderSelectionController,'shader4').name("Shader 4");	
-		h.add(shaderSelectionController,'shader5').name("Cell shader");	
-		h.add(shaderSelectionController,'shader6').name("Flap shader");		
-	
-	}
 	
 	window.addEventListener( 'resize', onWindowResize, false );
 }
 
 function rebuildParticles() {
-	console.log('rebuildParticles' + scene.children);
+	// console.log('rebuildParticles' + scene.children);
 	
 	B.x = particleOptions.betaX;
 	B.y = particleOptions.betaY;
@@ -328,132 +337,99 @@ function rebuildParticles() {
 	tailMaxLifeSpan = particleOptions.tailLifeSpan + particleOptions.tailLifeSpanChaos;
 
 	tailSpawnInterval = particleOptions.tailSpawnInterval;
-
-	//-----
-	//create particles
-
-	//Create
-	//THREE.TextureLoader.crossOrigin = '';
-	//THREE.ImageUtils.crossOrigin = '';
-	texture = new THREE.TextureLoader().load( 'img/crate.gif' );
-	geometry = new THREE.BoxGeometry( 10, 10, 10 );
-
-	//------
-	//We can't use the cross origin image file on the file:/// during development... 
-	if (document.location.href.indexOf("file:///") > -1)
-	{
-		material = new THREE.MeshLambertMaterial( { color:0xffff00 } );
-	}	
-	else
-	{
-		material = new THREE.MeshLambertMaterial( { map:texture, color:0xffff00 } );
-	}
-	//------
 	
-	if (!window.mobilecheck())
-	{
-		//Mobile safari can't handle shader1, shader3, and shader4... shader2 is motionless
-		var paramsVertex = [
-			'vertexShader',
-			'vertexShader',
-			'vertexShader',
-			'vertexShader',
-			'vertexShaderCell',
-			'vertexShaderCell'
-		];
-		var params = [
-			[ 'fragment_shader1', uniforms1 ],
-			[ 'fragment_shader2', uniforms2 ],
-			[ 'fragment_shader3', uniforms1 ],
-			[ 'fragment_shader4', uniforms1 ],
-			[ 'fragment_shaderCell', uniforms3 ],
-			[ 'fragment_shaderTail', uniforms4 ]
-		];
+	// if (!window.mobilecheck())
+	// {
 
-		const loadMaterial = ( selection ) => new THREE.ShaderMaterial({
-			uniforms: params[ selection ][ 1 ],
-			vertexShader: document.getElementById( paramsVertex[ selection ] ).textContent,
-			fragmentShader: document.getElementById( params[ selection ][ 0 ] ).textContent
-		});
-		material = loadMaterial( shaderSelection );
-		material2 = loadMaterial ( 1 );
-		material3 = loadMaterial ( 2 );
-
-		tailMaterial = loadMaterial(5); //TODO flap - tail material
-	}
+	// }
 	
-	
-	//Sphere
-	//geometry = new THREE.SphereGeometry( 1, 32, 16 );
-	//material = new THREE.MeshLambertMaterial( { color: 0x000088 } );
-
 	//remove all particles meshes from the scene
-	
 	var children = scene.children;
     for(var i = children.length-1;i>=0;i--){
         var child = children[i];
         if (child.isParticle)
         {
         	scene.remove(child);	
-        }
-        
-    };   
+        }        
+    };
+    for (m of tracersMesh) {
+    	scene.remove(m);
+    	delete m;
+    }
+    scene.remove(particleMesh);
+    scene.remove(particleTailsMesh);
 
-	particles = [];
-	particleTails = [];
+	initialParticle();	
+	initialTail();
 
-	for (var i = 0; i < particleOptions.particleCount; i++)
-	{
-		mesh = new THREE.Mesh( geometry, material );//THREEx.Crates.createCrate1();   //
-		mesh.position.set(-500 + Math.floor((Math.random() * 1000) + 1), 5,  -500 + Math.floor((Math.random() * 1000) + 1));
-		scene.add(mesh);
+}
 
-		mesh.S = new THREE.Vector3(mesh.position.x, mesh.position.y, mesh.position.z);	//position
-		mesh.V = new THREE.Vector3(0.0,0.1,0.1);//Math.floor((Math.random() * 1))-0.5,Math.floor((Math.random() * 1))-0.5); //velocity
-		mesh.M = 1;								//mass
-		mesh.mesh_falling = true;
-		mesh.mesh_raising = false;
-		mesh.isParticle = true;
-		mesh.topCutOff = particleOptions.height + Math.floor((Math.random() * particleOptions.heightChaos) + 1)
-		//G is the raising velocity and makes a great tornado when its randomness is varied
-		//tempG just holds individual values for each particle
-		mesh.tempG = new THREE.Vector3(G.x,G.y - Math.floor((Math.random()*particleOptions.betaLiftChaos) - particleOptions.betaLiftChaos/2.0) * .00001, G.z);// -.001
+function initialParticle() {
+	let positions = [];
+	for (var i = 0; i < particleOptions.particleCount; i++) {
+		let position = new THREE.Vector3(-500 + Math.floor((Math.random() * 1000) + 1), 5,  -500 + Math.floor((Math.random() * 1000) + 1));
+		positions.push(position.x);
+		positions.push(position.y);
+		positions.push(position.z);
+
+		particleArray[i] = {
+			position: position,
+			S: new THREE.Vector3(position.x, position.y, position.z),
+			V: new THREE.Vector3(.0, .1, .1),
+			M: 1,
+			mesh_falling: true,
+			mesh_raising: false,
+			isParticle: true,
+			topCutOff: particleOptions.height + Math.floor((Math.random() * particleOptions.heightChaos) + 1),
+			tempG:  new THREE.Vector3(G.x,G.y - Math.floor((Math.random()*particleOptions.betaLiftChaos) - particleOptions.betaLiftChaos/2.0) * .00001, G.z),// -.001
+
+			size: 80 + 100 * (Math.random() - 0.5),
+			opacity: 1.0,
+		};
 		
-		particles.push(mesh);
+		particleAttribute.size[i] = particleArray[i].size;
+		particleAttribute.opacity[i] = particleArray[i].opacity;
 	}
 
-	// var loader = new THREE.GLTFLoader();
+	particleGeometry = new THREE.BufferGeometry();
+	particleGeometry.setAttribute( 'position', new THREE.Float32BufferAttribute( positions, 3 ) );
+	particleGeometry.setAttribute( 'size', new THREE.Float32BufferAttribute( particleAttribute.size, 1 ).setUsage( THREE.DynamicDrawUsage ) );
+	particleGeometry.setAttribute( 'opacity', new THREE.Float32BufferAttribute( particleAttribute.opacity, 1 ).setUsage( THREE.DynamicDrawUsage ) );
 
-	// loader.load("./model/Thonker.glb", function ( gltf ) {
-	// 	scene.add( gltf.scene );
+	particleMesh = new THREE.Points( particleGeometry, particleMaterial );
+	particleMesh.dynamic = true;
+	particleMesh.sortParticles = true;
 
-	// }, undefined, function ( error ) {
-
-	// 	console.error( error );
-
-	// } );
-
-	// // cube
-	// var cubeGeometry = new THREE.CubeGeometry( 10, 10, 10 );
-	// var cubeMaterial = new THREE.MeshBasicMaterial( { color: 0x2222ff } );
-	// var cube = new THREE.Mesh( cubeGeometry, cubeMaterial );
-
-	// cube.S = new THREE.Vector3(cube.position.x, cube.position.y, cube.position.z);	//position
-	// cube.V = new THREE.Vector3(0.0,0.1,0.1);//Math.floor((Math.random() * 1))-0.5,Math.floor((Math.random() * 1))-0.5); //velocity
-	// cube.M = 10;								//mass
-	// cube.mesh_falling = true;
-	// cube.mesh_raising = false;
-	// cube.isParticle = true;
-	// cube.topCutOff = particleOptions.height + Math.floor((Math.random() * particleOptions.heightChaos) + 1)
-	// //G is the raising velocity and makes a great tornado when its randomness is varied
-	// //tempG just holds individual values for each particle
-	// cube.tempG = new THREE.Vector3(G.x,G.y - Math.floor((Math.random()*particleOptions.betaLiftChaos) - particleOptions.betaLiftChaos/2.0) * .0001, G.z);// -.001
+	// console.log(particleMesh);
 	
+	scene.add(particleMesh);
+}
 
-	// scene.add(cube);
-	// particles.push(cube)
+function initialTail() {
+	for (let i=0;i<particleOptions.tailParticleCount;i++) {
+		particleTailsReuse[i] = i;
 
-	
+		particleTails[i] = {
+			position: new THREE.Vector3(.1, .1, .1),
+			size: 0.0,
+			opacity: 0.0,
+		}
+		particleTailsAttribute.position[(i * 3) + 0] = particleTails[i].position.x;
+		particleTailsAttribute.position[(i * 3) + 1] = particleTails[i].position.y;
+		particleTailsAttribute.position[(i * 3) + 2] = particleTails[i].position.z;
+		particleTailsAttribute.size[i] = particleTails[i].size;
+		particleTailsAttribute.opacity[i] = particleTails[i].opacity;
+	}
+
+	particleTailsGeometry = new THREE.BufferGeometry();
+	particleTailsGeometry.setAttribute( 'position', new THREE.Float32BufferAttribute( particleTailsAttribute.position, 3 ) );
+	particleTailsGeometry.setAttribute( 'size', new THREE.Float32BufferAttribute( particleAttribute.size, 1 ).setUsage( THREE.DynamicDrawUsage ) );
+	particleTailsGeometry.setAttribute( 'opacity', new THREE.Float32BufferAttribute( particleAttribute.opacity, 1 ).setUsage( THREE.DynamicDrawUsage ) );
+
+	particleTailsMesh = new THREE.Points( particleTailsGeometry, particleMaterial );
+	particleTailsMesh.dynamic = true;
+	particleTailsMesh.sortParticles = true;
+	scene.add(particleTailsMesh);
 }
 
 function initInput() {
@@ -489,7 +465,7 @@ function initInput() {
 					- uv : intersection point in the object's UV coordinates (THREE.Vector2)
 			*/
 		}
-		console.log("Nearest point : ",nearestPoint);
+		// console.log("Nearest point : ",nearestPoint);
 		// Creates a ball and throws it
 		var cubeGeometry = new THREE.CubeGeometry( 20, 20, 20 );
 		var cubeMaterial = new THREE.MeshBasicMaterial( { color: 0x2222ff } );
@@ -534,15 +510,15 @@ function onWindowResize() {
 	camera.aspect = window.innerWidth / window.innerHeight;
 	camera.updateProjectionMatrix();
 
-	if (deviceOrientation)
-	{
+	// if (deviceOrientation)
+	// {
 
-	}
-	else
-	{
-		// *** OTHER CONTROLS WILL NEED THIS!!! ***
-		//controls.handleResize(); OrbitControls do not have this function 
-	}
+	// }
+	// else
+	// {
+	// 	// *** OTHER CONTROLS WILL NEED THIS!!! ***
+	// 	//controls.handleResize(); OrbitControls do not have this function 
+	// }
 
 	if (stereo)
 	{
@@ -560,11 +536,6 @@ function animate()
     requestAnimationFrame( animate );
 	render();		
 	update();
-}
-
-function tornado_path_update()
-{
-	
 }
 
 function update()
@@ -587,21 +558,111 @@ function update()
 		isCreateTailFrame = false;
 	}
 	
-	// update particle tail
+	updateParticle();
 	updateParticleTail();
 
-	for (let i=0; i<particles.length; i++)
+	
+	//------
+	// Enable these 3 lines to show a tracer of the last particle stored into mesh
+	if (particleOptions.tracer)
 	{
-		let particle = particles[i];
+		mesh = new THREE.Mesh( geometry, material );
+		mesh.position.set(Snew.x, Snew.y, Snew.z);
+		tracersMesh.push(mesh);
+		scene.add(mesh);
+	}
+	else {
+		for(mesh of tracersMesh) {
+			scene.remove(mesh);
+			delete mesh;
+		}
+	}
+	//------
+	
+	// if ( keyboard.pressed("z") ) 
+	// {	// do something   
+	// 	console.log("pressed Z");
+	// 	mesh = new THREE.Mesh( new THREE.BoxGeometry(20, 5, 20), material3 );//THREEx.Crates.createCrate1();   //
+	// 	mesh.position.set(-500 + Math.floor((Math.random() * 1000) + 1), 5,  -500 + Math.floor((Math.random() * 1000) + 1));
+	// 	scene.add(mesh);
+
+	// 	mesh.S = new THREE.Vector3(mesh.position.x, mesh.position.y, mesh.position.z);	//position
+	// 	mesh.V = new THREE.Vector3(0.0,0.1,0.1);//Math.floor((Math.random() * 1))-0.5,Math.floor((Math.random() * 1))-0.5); //velocity
+	// 	mesh.M = 3;								//mass
+	// 	mesh.mesh_falling = true;
+	// 	mesh.mesh_raising = false;
+	// 	mesh.isParticle = true;
+	// 	mesh.topCutOff = particleOptions.height + Math.floor((Math.random() * particleOptions.heightChaos) + 1)
+	// 	//G is the raising velocity and makes a great tornado when its randomness is varied
+	// 	//tempG just holds individual values for each particle
+	// 	mesh.tempG = new THREE.Vector3(G.x,G.y - Math.floor((Math.random()*particleOptions.betaLiftChaos) - particleOptions.betaLiftChaos/2.0) * .0001, G.z);// -.001
+		
+	// 	particles.push(mesh);
+	// }
+	
+	//console.log('(' + Snew.x + "," + Snew.y + "," + Snew.z );
+
+	controls.update();
+	stats.update();
+}
+
+function createParticleTail( particle_cloud ) // flap - create tail for particle
+{
+	function min(a, b) {
+		return (a> b)? b : a;
+	}
+	function max(a, b) {
+		return (a < b)? b : a;
+	}
+	let positions = particleTailsMesh.geometry.attributes.position.array;
+	let opacitys = particleTailsMesh.geometry.attributes.opacity.array;
+	let sizes = particleTailsMesh.geometry.attributes.size.array;
+
+	let i = particleTailsReuse[0];
+	let particle = particleTails[i];
+
+	// console.log (particle);
+	if (particle) {
+		particle.position.x = particle_cloud.position.x;
+		particle.position.y = particle_cloud.position.y;
+		particle.position.z = particle_cloud.position.z;
+
+		particle.size = particle_cloud.size;
+		particle.opacity = 1.0;
+		particle.alive = tailLifeSpan + (Math.random() * tailLifeSpanChaos);
+
+		positions[ (i * 3) + 0 ] = particle.position.x;
+	    positions[ (i * 3) + 1 ] = particle.position.y;
+	    positions[ (i * 3) + 2 ] = particle.position.z;
+
+		opacitys[i] = particle.opacity;
+		sizes[i] = particle.size;
+
+		particleTailsReuse.splice(0, 1);
+		particleTailsMesh.geometry.attributes.position.needsUpdate = true;
+		particleTailsMesh.geometry.attributes.opacity.needsUpdate = true;
+		particleTailsMesh.geometry.attributes.size.needsUpdate = true;
+	  	particleTailsMesh.geometry.setDrawRange(0, particleTails.length);
+	}
+}
+
+function updateParticle() {
+	let positions = particleMesh.geometry.attributes.position.array;
+	let opacitys = particleMesh.geometry.attributes.opacity.array;
+
+	for (let i=0; i<particleArray.length; i++)
+	{
+		let particle = particleArray[i];
 		var F = new THREE.Vector3(0,0,0);
 		var A = new THREE.Vector3(0,0,0);
 		var Vnew = new THREE.Vector3(0,0,0); //Velocity at t+dt
 		var Snew = new THREE.Vector3(0,0,0); //Position at t+dt
 
-
 		// (100, 0, 100) is center
 		if (Math.abs(particle.S.x-100) < 10 && Math.abs(particle.S.y-5) < 10 && Math.abs(particle.S.z-100) < 10 && particle.mesh_falling == true)
 		{
+			opacitys[i] = 1.0;
+
 			// A.x = 0;
 			// A.y = 0;
 			// A.z = 0;
@@ -620,6 +681,8 @@ function update()
 	   	{
 	   		particle.mesh_falling = true;
 	   		particle.mesh_raising = false;
+
+	   		opacitys[i] = 0.0;
 	   	}
 	   	
 
@@ -671,87 +734,54 @@ function update()
 	   	particle.position.x = Snew.x;
 	   	particle.position.y = Snew.y;
 	   	particle.position.z = Snew.z;
+
+	   	positions[ (i * 3) + 0 ] = Snew.x;
+	    positions[ (i * 3) + 1 ] = Snew.y;
+	    positions[ (i * 3) + 2 ] = Snew.z;
 		
 		//create tail
-		if (isCreateTailFrame)
+		if (isCreateTailFrame && particle.mesh_raising)
 		{
-			createParticleTail(Snew);
+			let a = (Math.random() * 5);
+			if (a > 4.5)
+				createParticleTail(particle);
 		}
-	}
-	
-	//------
-	// Enable these 3 lines to show a tracer of the last particle stored into mesh
-	if (particleOptions.tracer)
-	{
-		mesh = new THREE.Mesh( geometry, material );
-		mesh.position.set(Snew.x, Snew.y, Snew.z);
-		tracersMesh.push(mesh);
-		scene.add(mesh);
-	}
-	else {
-		for(mesh of tracersMesh) {
-			scene.remove(mesh);
-			delete mesh;
-		}
-	}
-	//------
-	
-	if ( keyboard.pressed("z") ) 
-	{	// do something   
-		console.log("pressed Z");
-		mesh = new THREE.Mesh( new THREE.BoxGeometry(20, 5, 20), material3 );//THREEx.Crates.createCrate1();   //
-		mesh.position.set(-500 + Math.floor((Math.random() * 1000) + 1), 5,  -500 + Math.floor((Math.random() * 1000) + 1));
-		scene.add(mesh);
 
-		mesh.S = new THREE.Vector3(mesh.position.x, mesh.position.y, mesh.position.z);	//position
-		mesh.V = new THREE.Vector3(0.0,0.1,0.1);//Math.floor((Math.random() * 1))-0.5,Math.floor((Math.random() * 1))-0.5); //velocity
-		mesh.M = 3;								//mass
-		mesh.mesh_falling = true;
-		mesh.mesh_raising = false;
-		mesh.isParticle = true;
-		mesh.topCutOff = particleOptions.height + Math.floor((Math.random() * particleOptions.heightChaos) + 1)
-		//G is the raising velocity and makes a great tornado when its randomness is varied
-		//tempG just holds individual values for each particle
-		mesh.tempG = new THREE.Vector3(G.x,G.y - Math.floor((Math.random()*particleOptions.betaLiftChaos) - particleOptions.betaLiftChaos/2.0) * .0001, G.z);// -.001
-		
-		particles.push(mesh);
 	}
-	
-	//console.log('(' + Snew.x + "," + Snew.y + "," + Snew.z );
 
-	controls.update();
-	stats.update();
-}
-
-function createParticleTail( pos ) // flap - create tail for particle
-{
-	mesh = new THREE.Mesh( tailGeometry, tailMaterial );//THREEx.Crates.createCrate1();   //
-	mesh.position.set(pos.x, pos.y, pos.z);
-	scene.add(mesh);
-
-	mesh.life = tailLifeSpan + (Math.random() * tailLifeSpanChaos);
-	mesh.isParticle = true;
-	
-	particleTails.push(mesh);
+	particleMesh.geometry.attributes.position.needsUpdate = true;
+	particleMesh.geometry.attributes.opacity.needsUpdate = true;
+  	particleMesh.geometry.setDrawRange( 0, positions.length ); 
 }
 
 function updateParticleTail()
 {
-	for (var i = particleTails.length-1; i >= 0; i--)
-	{
-		var particle = particleTails[i];
-		particle.life -= dt;
+	let opacitys = particleTailsMesh.geometry.attributes.opacity.array;
+	let sizes = particleTailsMesh.geometry.attributes.size.array;
 
+	for(let i=0;i<particleTails.length;i++) {
+		var particle = particleTails[i];
+		particle.alive -= dt;
 		// remove
-		if( particle.life < 0 )
+		if( particle.alive < 0 )
 		{
-			particleTails.splice(i, 1);
-			scene.remove(particle);
+			particle.opacity = 0.0;
+			particleTailsReuse.push(i);
+		}
+		else {
+			var ms = (particle.alive) / tailMaxLifeSpan;
+			particle.opacity = ms;
+			particle.size = particle.size * ms;
+
 		}
 
-		var ms = (particle.life)/tailMaxLifeSpan;
-		particle.scale.set(ms,ms,ms);
+		opacitys[i] = particle.opacity;
+		// sizes[i] = particle.size;
 	}
+
+	particleTailsMesh.geometry.attributes.opacity.needsUpdate = true;
+	// particleTailsMesh.geometry.attributes.size.needsUpdate = true;
+  	particleTailsMesh.geometry.setDrawRange( 0,  particleTails.length); 
 }
 
 if (window.mobilecheck())
@@ -765,14 +795,11 @@ function render()
 		//This function does not work on iOS safari as of Three.js-r76
 		var delta = clock.getDelta();
 
-		uniforms1.time.value += delta * 5;
-		uniforms2.time.value = clock.elapsedTime;
 	
 	}
 	else
 	{
-		uniforms1.time.value += dt * 5;
-		uniforms2.time.value = clock.elapsedTime;
+
 
 	}
 	
