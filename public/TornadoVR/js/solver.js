@@ -1,4 +1,4 @@
-class entity {
+class Entity {
     mesh;
     position;
     velocity;
@@ -16,21 +16,22 @@ class entity {
         this.subUpdate(dt);
         this.position.add(derivative.position.multiplyScalar(dt));
         this.velocity.add(derivative.velocity.multiplyScalar(dt));
+        this.mesh.position.copy(this.position);
     }
     
     subUpdate(dt) {}; //for each entity to have it own update
 }
 
-class Particle extends entity {
-    constructor({mass, position, velocity, _forceAcc}){
-        super({mass, position, velocity, _forceAcc});
+class Particle extends Entity {
+    constructor({mesh, mass, position, velocity, _forceAcc}){
+        super({mesh, mass, position, velocity, _forceAcc});
     }
 }
 
-class RigidBody extends entity {
+class RigidBody extends Entity {
     size;
-    constructor({mass, position, velocity, _forceAcc, size}){
-        super({mass, position, velocity, _forceAcc});
+    constructor({mesh, mass, position, velocity, _forceAcc, size}){
+        super({mesh, mass, position, velocity, _forceAcc});
         this.size = size;
     }
 }
@@ -115,7 +116,6 @@ class Solver {
         this.derivatives.forEach((dp, idx) =>{
             let entity = this.entities[idx];
             dp._forceAcc.add(this.gravity);
-            addVector(dp._forceAcc, 0, this.gravity, 0);
 
             // B
             // let F = new THREE.Vector3(0, 0, 0);
@@ -138,15 +138,12 @@ class Solver {
 
     }
 
-    calcForces_rigid() {
-
-    }
-
-
     calcDerivs() {
-        this.derivatives.forEach(dp => {
-            dp.position = dp.velocity;
-            dp.velocity = dp._forceAcc.multiplyScalar(1/dp.mass);
+        this.derivatives.forEach((dp, idx) => {
+            const entity = this.entities[idx];
+            dp.position.copy(entity.velocity);
+            dp._forceAcc.multiplyScalar(1/dp.mass);
+            dp.velocity.copy(dp._forceAcc);
         });
         // this.derivatives_rigid.forEach(dp => {
         //     dp.position = dp.velocity;

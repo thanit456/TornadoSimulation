@@ -53,6 +53,13 @@ var G = new THREE.Vector3(0.0,-.001,0.0);
 var Gravity = new THREE.Vector3(0.0, 0.01,0.0);
 
 //particle properties
+var S = new THREE.Vector3(100,0,100);	//position
+var V = new THREE.Vector3(0.0,0.1,0.1); //velocity
+var M = 1;								//mass
+var mesh_falling = false;
+var mesh_raising = true;
+var mesh_height = 5;
+
 var texture;
 var geometry;
 var material;
@@ -165,7 +172,7 @@ function init()
 
 	var gridXZ = new THREE.GridHelper(100, 10);
 	gridXZ.setColors( new THREE.Color(0x006600), new THREE.Color(0x006600) );
-	gridXZ.position.set( 0,0,0 );
+	gridXZ.position.set( 100,0,100 );
 	scene.add(gridXZ);
 	
 	// var gridXY = new THREE.GridHelper(100, 10);
@@ -387,6 +394,61 @@ function rebuildParticles() {
         }
         
     };   
+
+	particles = [];
+	particleTails = [];
+
+	for (var i = 0; i < particleOptions.particleCount; i++)
+	{
+		mesh = new THREE.Mesh( geometry, material );//THREEx.Crates.createCrate1();   //
+		mesh.position.set(-500 + Math.floor((Math.random() * 1000) + 1), 5,  -500 + Math.floor((Math.random() * 1000) + 1));
+		scene.add(mesh);
+
+		mesh.S = new THREE.Vector3(mesh.position.x, mesh.position.y, mesh.position.z);	//position
+		mesh.V = new THREE.Vector3(0.0,0.1,0.1);//Math.floor((Math.random() * 1))-0.5,Math.floor((Math.random() * 1))-0.5); //velocity
+		mesh.M = 1;								//mass
+		mesh.mesh_falling = true;
+		mesh.mesh_raising = false;
+		mesh.isParticle = true;
+		mesh.topCutOff = particleOptions.height + Math.floor((Math.random() * particleOptions.heightChaos) + 1)
+		//G is the raising velocity and makes a great tornado when its randomness is varied
+		//tempG just holds individual values for each particle
+		mesh.tempG = new THREE.Vector3(G.x,G.y - Math.floor((Math.random()*particleOptions.betaLiftChaos) - particleOptions.betaLiftChaos/2.0) * .00001, G.z);// -.001
+		
+		particles.push(mesh);
+	}
+
+	// var loader = new THREE.GLTFLoader();
+
+	// loader.load("./model/Thonker.glb", function ( gltf ) {
+	// 	scene.add( gltf.scene );
+
+	// }, undefined, function ( error ) {
+
+	// 	console.error( error );
+
+	// } );
+
+	// // cube
+	// var cubeGeometry = new THREE.CubeGeometry( 10, 10, 10 );
+	// var cubeMaterial = new THREE.MeshBasicMaterial( { color: 0x2222ff } );
+	// var cube = new THREE.Mesh( cubeGeometry, cubeMaterial );
+
+	// cube.S = new THREE.Vector3(cube.position.x, cube.position.y, cube.position.z);	//position
+	// cube.V = new THREE.Vector3(0.0,0.1,0.1);//Math.floor((Math.random() * 1))-0.5,Math.floor((Math.random() * 1))-0.5); //velocity
+	// cube.M = 10;								//mass
+	// cube.mesh_falling = true;
+	// cube.mesh_raising = false;
+	// cube.isParticle = true;
+	// cube.topCutOff = particleOptions.height + Math.floor((Math.random() * particleOptions.heightChaos) + 1)
+	// //G is the raising velocity and makes a great tornado when its randomness is varied
+	// //tempG just holds individual values for each particle
+	// cube.tempG = new THREE.Vector3(G.x,G.y - Math.floor((Math.random()*particleOptions.betaLiftChaos) - particleOptions.betaLiftChaos/2.0) * .0001, G.z);// -.001
+	
+
+	// scene.add(cube);
+	// particles.push(cube)
+
 	
 }
 
@@ -518,6 +580,115 @@ function update()
 		isCreateTailFrame = false;
 	}
 	
+	// update particle tail
+	updateParticleTail();
+
+	for (let i=0; i<particles.length; i++)
+	{
+		let particle = particles[i];
+		var F = new THREE.Vector3(0,0,0);
+		var A = new THREE.Vector3(0,0,0);
+		var Vnew = new THREE.Vector3(0,0,0); //Velocity at t+dt
+		var Snew = new THREE.Vector3(0,0,0); //Position at t+dt
+
+
+		// (100, 0, 100) is center
+		if (Math.abs(particle.S.x-100) < 10 && Math.abs(particle.S.y-5) < 10 && Math.abs(particle.S.z-100) < 10 && particle.mesh_falling == true)
+		{
+			// A.x = 0;
+			// A.y = 0;
+			// A.z = 0;
+			particle.mesh_falling = false;
+			particle.mesh_raising = true;
+			//Controlling the Vx when raising gives us a cool variable magnetic function 
+			//50 = tornado level 5 
+			//10 = tornado level 1
+			particle.V.x = 0.01 + Math.floor((Math.random() * particleOptions.tornadoFactor) + 1) * 0.1;
+			particle.V.y = 0.0;
+			particle.V.z = 0.01 + Math.floor((Math.random() * particleOptions.tornadoFactor) + 1) * 0.1;
+		
+		}
+
+	   	if (particle.S.y > particle.topCutOff && particle.mesh_falling == false)
+	   	{
+	   		particle.mesh_falling = true;
+	   		particle.mesh_raising = false;
+	   	}
+	   	
+
+		if (particle.mesh_raising)
+		{
+			F.crossVectors( particle.V , B); 			// F = (VxB)
+			F.addVectors(F, particle.tempG);
+		}	
+		else
+		{
+			if (particle.position.y > mesh_height && particle.mesh_falling)
+			{
+				F.addVectors(F, Gravity);
+			}
+			else
+			{
+				// suck to tornado base
+				particle.V = new THREE.Vector3(80-particle.position.x+Math.floor((Math.random() * 40) + 1), 0, 80-particle.position.z+Math.floor((Math.random() * 40) + 1));
+				particle.V.normalize();
+				particle.V.multiplyScalar(1);
+				particle.S.y = mesh_height;
+				particle.position.y = mesh_height;
+
+				//----------
+				//Use these two lines to make the tornado infinite without suction
+				if (particleOptions.instantRespawn)
+				{
+					particle.S.set(60 + Math.floor((Math.random() * 80) + 1), 5,  60 + Math.floor((Math.random() * 80) + 1));
+					particle.position.set(60 + Math.floor((Math.random() * 80) + 1), 5,  60 + Math.floor((Math.random() * 80) + 1));
+				}
+				//----------
+
+			}
+		}
+
+		F.multiplyScalar(-1); //negative charge
+		F.multiplyScalar(1/particle.M); //just 1
+		A.copy(F); 	// A = F/M
+		
+		A.multiplyScalar(edt);
+		 
+		Vnew.addVectors(particle.V, A);
+		particle.V.copy(Vnew);  
+
+		particle.S.add(new THREE.Vector3(Vnew.x*edt, Vnew.y*edt, Vnew.z*edt));
+		
+		Snew.copy(particle.S); 	
+
+	   	particle.position.x = Snew.x;
+	   	particle.position.y = Snew.y;
+	   	particle.position.z = Snew.z;
+		
+		//create tail
+		if (isCreateTailFrame)
+		{
+			createParticleTail(Snew);
+		}
+	}
+	
+	//------
+	// Enable these 3 lines to show a tracer of the last particle stored into mesh
+	if (particleOptions.tracer)
+	{
+		mesh = new THREE.Mesh( geometry, material );
+		mesh.position.set(Snew.x, Snew.y, Snew.z);
+		tracersMesh.push(mesh);
+		scene.add(mesh);
+	}
+	else {
+		for(mesh of tracersMesh) {
+			scene.remove(mesh);
+			delete mesh;
+		}
+	}
+
+	//------
 	
 	if ( keyboard.pressed("z") ) 
 	{	// do something   
@@ -540,8 +711,8 @@ function update()
 		particles.push(mesh);
 	}
 	
-	// updates
-	solver.update();
+	//console.log('(' + Snew.x + "," + Snew.y + "," + Snew.z );
+
 	controls.update();
 	stats.update();
 }
@@ -549,20 +720,18 @@ function update()
 // TODO delete
 function createDustParticle() 
 {	
-	let mesh = new THREE.Mesh(tailGeometry, tailMaterial );
-	let pos = new THREE.Vector3(10*Math.random(), 10*Math.random(), 10*Math.random());
-	mesh.position.copy(pos);
+	let mesh = new THREE.Mesh(geometry, material);
 	let dust = new Particle({
-		mesh: mesh,
-		mass: 0.001 + Math.random()*dustMassChaos,
-		position: new THREE.Vector3().copy(pos),
-		velocity: new THREE.Vector3(Math.random(), Math.random(), Math.random())
+		mesh = mesh,
+		mass = 0.001 * Math.random()*dustMassChaos,
+		position = new THREE.Vector3(100*Math.random(), 100*Math.random(), 100*Math.random()),
+		velocity = new THREE.Vector3(100*Math.random(), 100*Math.random(), 100*Math.random())
 	});
 	solver.addParticle(dust);
 	scene.add(mesh);		
 }
 
-// TODO delete
+
 function createParticleTail( pos ) // flap - create tail for particle
 {
 	mesh = new THREE.Mesh( tailGeometry, tailMaterial );//THREEx.Crates.createCrate1();   //
@@ -575,7 +744,6 @@ function createParticleTail( pos ) // flap - create tail for particle
 	particleTails.push(mesh);
 }
 
-// TODO delete
 function updateParticleTail()
 {
 	for (var i = particleTails.length-1; i >= 0; i--)
