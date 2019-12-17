@@ -30,34 +30,27 @@
       var simple_material = new THREE.MeshBasicMaterial( { color: 0xff0000 } );
   
       const createCube = (geometry, material) => {
-        const cube = new THREE.Mesh( geometry, material );
-        cube.position = new THREE.Vector3(0, 0, 0);
-        cube.t = 0;
+        let mesh = new THREE.Mesh( geometry, material);
         const particle = new Particle({
           mass: 1,
           velocity: new THREE.Vector3(Math.random()*10, 0, Math.random()*10),
-          position: cube.position,
+          position: new THREE.Vector3(Math.random()*10, Math.random()*10, Math.random()*10),
           _forceAcc: new THREE.Vector3(0, 0, 0),
         });
-        cube.particleRef = particle;
-        scene.add(cube);
-        cubes.push(cube);
+        scene.add(mesh);
         solver.addParticle(particle);
       }
 
       const createCubeRigid = (geometry, material) => {
-        const cube = new THREE.Mesh( geometry, material );
-        cube.position = new THREE.Vector3(0, 0, 0);
-        cube.t = 0;
+        let mesh = new THREE.Mesh( geometry, material);
         const rigidbody = new RigidBody({
+          mesh: mesh,
           mass: 5,
           velocity: new THREE.Vector3(0, 0, 0),
-          position: cube.position,
+          position: new THREE.Vector3(Math.random()*10, Math.random()*10, Math.random()*10),
           _forceAcc: new THREE.Vector3(0, 0, 0),
         });
-        cube.rigidbodyRef = rigidbody;
-        scene.add(cube);
-        cubes.push(cube);
+        scene.add(mesh);
         solver.addRigidBody(rigidbody);
       }
       
@@ -109,15 +102,6 @@
           createCube(createGeometry(1), material);
         }
 
-        cubes.forEach(cube => {
-          // console.log('update cube');
-          cube.rotation.x += 0.01;
-          cube.rotation.y += 0.01;
-          cube.t += time_step;
-          cube.position.x = cube.particleRef.position.x;
-          cube.position.y = cube.particleRef.position.y;
-          cube.position.z = cube.particleRef.position.z;
-        })
         console.log('doge');
 
         frameNo++;

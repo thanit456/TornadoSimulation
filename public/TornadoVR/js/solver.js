@@ -1,9 +1,11 @@
 class entity {
+    mesh;
     position;
     velocity;
     _forceAcc;
     mass;
-    constructor({mass, position, velocity, _forceAcc}) {
+    constructor({mesh, mass, position, velocity, _forceAcc}) {
+        this.mesh = mesh;
         this.mass = mass;
         this.position = position ? new THREE.Vector3().copy(position) : new THREE.Vector3(0, 0, 0);
         this.velocity = velocity ? new THREE.Vector3().copy(velocity) : new THREE.Vector3(0, 0, 0);
@@ -63,9 +65,7 @@ class Solver {
 
     defaultTimestep = 1/60; // assume 60 FPS
 
-    constructor() {
-        
-    }
+    constructor() {}
 
     addEntity(entity, deriv) {
         this.entities.push(entity);
