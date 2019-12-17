@@ -120,8 +120,9 @@ class Solver {
         // temporary remove gravity
         this.derivatives.forEach((dp, idx) =>{
             let entity = this.entities[idx];
-            let F = new THREE.Vector3().copy(this.gravity).multiplyScalar(entity.mass);
-            dp._forceAcc.add(F); 
+            // let F = new THREE.Vector3().copy(this.gravity).multiplyScalar(entity.mass);
+            let F2 = new THREE.Vector3().copy(entity.velocity).cross(new THREE.Vector3(0, 10, 0));
+            dp._forceAcc.add(F2); 
         });
     }
 
@@ -167,7 +168,7 @@ class Solver {
                 if (intersection(point, otherPoint)) {
 
                     let lo=0, hi=dt, mid;
-                    while (hi-lo > 1e-3) { // reasonable difference
+                    while (hi-lo > 1e-2) { // reasonable difference
                         mid = (lo+hi)/2;
                         point.update(deriv, mid-dt);
                         otherPoint.update(otherDeriv, mid);
@@ -223,7 +224,7 @@ class Solver {
         this.entities.forEach(e => {
             if (e.position.y <= 0){
                 const n = new THREE.Vector3(0, 1, 0); // vector along p1 -- p2
-                flip(e.velocity, n, 0.7);
+                flip(e.velocity, n, 0.3);
             }
         })
     }
