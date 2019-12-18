@@ -27,7 +27,8 @@ class Entity {
         this.velocity.add(derivative.velocity.clone().multiplyScalar(dt));
         // this.position.add(derivative.position);
         // this.velocity.add(derivative.velocity);
-        this.mesh.position.copy(this.position);
+        if (!!this.mesh)
+            this.mesh.position.copy(this.position);
         this.subUpdate(dt);
     }
     
@@ -35,12 +36,27 @@ class Entity {
 }
 
 class Particle extends Entity {
-    constructor({mesh, mass, position, velocity, _forceAcc}){
+    meshIdx;
+    size;
+    onDestroy;
+    constructor({meshIdx, mass, position, velocity, _forceAcc, size, onDestroy}){
+        let mesh = null;
         super({mesh, mass, position, velocity, _forceAcc});
+
+        this.meshIdx = meshIdx;
+        this.size = size;
+        this.onDestroy = onDestroy;
     }
+
     subUpdate(dt) {
-        // if(this.position.length() > 1000)
-        //     this.destroy();
+        if(this.position.length() > 1000)
+        {
+            this.destroy();
+            if (!!this.onDestroy)
+                this.onDestroy(this);
+        }
+
+        this.alive += dt;
     }
 }
 
@@ -77,7 +93,10 @@ const intersection = (obj1, obj2) => {
     // let type1 = Object.prototype.toString.call(obj1);
     // let type2 = Object.prototype.toString.call(obj2);
     // TEMP code
-    return obj1.position.distanceTo(obj2.position) < obj1.size + obj2.size; //     
+    const v1 = obj1.velocity.clone();
+    const v2 = obj2.velocity.clone();
+
+    return obj1.position.distanceTo(obj2.position) < obj1.size + obj2.size && (v1.dot(v2))/v1.length()/v2.length() > 0.01; //     
 }
 
 // assume elasticity
@@ -324,16 +343,7 @@ class Solver {
             p.update(deriv, minHit);
         })
 
-        this.entities.forEach(e => {
-            if (e.isRaising){
-                const centerSuck = this.tornadoC.clone().sub(e.centerOfRotation);
-                centerSuck.y = 0;
-                centerSuck.normalize().multiplyScalar(this.suckMag);
-                if (centerSuck.length() > 0.1)
-                    console.log(centerSuck);
-                e.position.add(centerSuck.multiplyScalar(minHit * 0.02));
-            }
-        });
+       
 
         // colliding
         if (minHitParts.point){
@@ -385,7 +395,8 @@ class Solver {
             {
                     this.entities.splice(i, 1);
                     this.derivatives.splice(i, 1);
-                    scene.remove(e.mesh);
+                    if (e.mesh)
+                        scene.remove(e.mesh);
             }
         }
 

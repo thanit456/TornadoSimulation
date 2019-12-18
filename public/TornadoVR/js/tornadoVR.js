@@ -20,7 +20,7 @@ let solver = new Solver();
 
 // global variable for particle
 let particleMassChaos = 0.010;
-let particleGenerateRate = 4; // per frame
+let particleGenerateRate = 16; // per frame
 
 // particle generate
 let lastParticleGenerateTime = 0;
@@ -30,14 +30,23 @@ var tailSpawnInterval = 0.02;
 var lastCreateTailTime = 0;
 var isCreateTailFrame = true;
 
-// tail global constant
-var tailLifeSpanChaos = 0.00;
-var tailGeometry = new THREE.BoxGeometry( 9, 9, 9 );
-var tailMaterial;
-
 var tracersMesh = [];
-var particles = [];
-var particleTails = []; // flap-tail
+
+var particleTailsAttribute = {
+	position: [],
+	size:  [],
+	opacity: [],
+	alive: [],
+}
+var particleTailsStack = [];
+var particleTailsGeometry = new THREE.BufferGeometry();
+var particleTailsMesh = new THREE.Mesh();
+
+var particleStack = [];
+var particleDestroyStack = [];
+var particleGeometry = new THREE.BufferGeometry();
+var particleMaterial = new THREE.ShaderMaterial();
+var particleMesh = new THREE.Mesh();
 
 var mesh;
 //global physics properties
@@ -154,8 +163,6 @@ function init()
 	////////////
 	// CUSTOM //
 	////////////
- 
-
 	// Ground floor
 
 	let ground_size_x = 500;
@@ -170,28 +177,26 @@ function init()
 	var planeBottom = new THREE.Mesh( planeGeo, new THREE.MeshPhongMaterial( { color: 0xffffff } ) );
 	planeBottom.rotateX( - Math.PI / 2 );
 	scene.add( planeBottom );
-	
-	// var gridXY = new THREE.GridHelper(100, 10);
-	// gridXY.position.set( 100,100,0 );
-	// gridXY.rotation.x = Math.PI/2;
-	// gridXY.setColors( new THREE.Color(0x000066), new THREE.Color(0x000066) );
-	// scene.add(gridXY);
-
-	// var gridYZ = new THREE.GridHelper(100, 10);
-	// gridYZ.position.set( 0,100,100 );
-	// gridYZ.rotation.z = Math.PI/2;
-	// gridYZ.setColors( new THREE.Color(0x660000), new THREE.Color(0x660000) );
-	// scene.add(gridYZ);
-	
-	
-
 	// direction (normalized), origin, length, color(hex)
 	var origin = new THREE.Vector3(0,0,0);
 	var terminus  = new THREE.Vector3(B.x, B.y, B.z);
 	var direction = new THREE.Vector3().subVectors(terminus, origin).normalize();
 	var arrow = new THREE.ArrowHelper(direction, origin, 100, 0x884400);
 	scene.add(arrow);
-	
+
+	// particle
+	particleGeometry = new THREE.BufferGeometry();
+	particleMaterial = new THREE.ShaderMaterial( 
+	{
+		uniforms: 
+		{
+			texture:   { type: "t", value: new THREE.TextureLoader().load( 'img/smokeparticle.png' ), },
+		},
+		vertexShader:   document.getElementById( 'particleVertexShader' ).textContent,
+		fragmentShader: document.getElementById( 'particleFragmentShader' ).textContent,
+		transparent: true,  alphaTest: 0.5, // if having transparency issues, try including: alphaTest: 0.5, 
+		blending: THREE.NormalBlending, depthTest: false
+	});
 	
 	if (stereo)
 	{
@@ -201,7 +206,7 @@ function init()
 	}
 
 	particleOptions = {
-		particleCount: 1000,
+		particleCount: 2000,
 		deltaTime:20,
 		betaX:0.0,
 		betaY:0.015,
@@ -217,32 +222,10 @@ function init()
 		instantRespawn:false,
 		tracer:false,
 
+		tailParticleCount: 1000,
 		tailSpawnInterval:0.02,
 		tailLifeSpanChaos:0.5
 
-	};
-
-	uniforms1 = {
-		time: { type: "f", value: 1.0 },
-		resolution: { type: "v2", value: new THREE.Vector2() }
-	};
-	uniforms2 = {
-		time: { type: "f", value: 1.0 },
-		resolution: { type: "v2", value: new THREE.Vector2() },
-		texture: { type: "t", value: new THREE.TextureLoader().load( "img/disturb.jpg" ) }
-	};
-	uniforms2.texture.value.wrapS = uniforms2.texture.value.wrapT = THREE.RepeatWrapping;
-	uniforms3 = {
-		"uDirLightPos"		: { type: "v3", value: new THREE.Vector3(1,0,0) },
-		"uDirLightColor"		: { type: "c" , value: new THREE.Color( 0xeeeeee ) },
-		"uAmbientLightColor"	: { type: "c" , value: new THREE.Color( 0x050505 ) },
-		"uBaseColor"		: { type: "c" , value: new THREE.Color( 0xff0000 ) }
-	};
-	uniforms4 = {
-		"uDirLightPos"		: { type: "v3", value: new THREE.Vector3(1,0,0) },
-		"uDirLightColor"		: { type: "c" , value: new THREE.Color( 0xeeeeee ) },
-		"uAmbientLightColor"	: { type: "c" , value: new THREE.Color( 0x050505 ) },
-		"uBaseColor"		: { type: "c" , value: new THREE.Color( 0xffffff ) }
 	};
 
 	rebuildParticles();
@@ -264,7 +247,7 @@ function init()
 
 	h = gui.addFolder( "Particle Options" );
 
-	h.add( particleOptions, "particleCount", 1, 10000, 1 ).name( "#particles" ).onChange( rebuildParticles );
+	h.add( particleOptions, "particleCount", 1, 10000, 100 ).name( "#particles" ).onChange( rebuildParticles );
 	h.add( particleOptions, "deltaTime", 1, 1000, 1 ).name( "dt" ).onChange( rebuildParticles );
 	h.add( particleOptions, "gravity", 0, 0.1, 0.01 ).name( "Gravity" ).onChange( rebuildParticles );
 	h.add( particleOptions, "height", 0, 5000, 1 ).name( "height" ).onChange( rebuildParticles );
@@ -272,6 +255,7 @@ function init()
 	h.add( particleOptions, "instantRespawn" ).name( "instant respawn" ).onChange( rebuildParticles );
 	h.add( particleOptions, "tracer" ).name( "show tracer" ).onChange( rebuildParticles );
 	// tail
+	h.add( particleOptions, "tailParticleCount", 0, 2000, 50 ).name( "tail particle count").onChange( rebuildParticles );
 	h.add( particleOptions, "tailSpawnInterval", 0, 1, 0.001 ).name( "tail spawn interval" ).onChange( rebuildParticles );
 	h.add( particleOptions, "tailLifeSpanChaos", 0, 20, 0.05 ).name( "tail life span chaos").onChange( rebuildParticles );
 
@@ -287,36 +271,11 @@ function init()
 	h.add( particleOptions, "tornadoFactor", 0, 100, 25 ).name( "Tornado Factor" ).onChange( rebuildParticles );
 
 	h.add( particleOptions, "betaLiftChaos", 1, 50, 1 ).name( "beta Lift Chaos" ).onChange( rebuildParticles );
-
-	if (!window.mobilecheck())
-	{
-		h = gui.addFolder( "Shader Options" );
-
-		var shaderSelectionController = {
-			shader1:function(){ shaderSelection = 0; rebuildParticles();},
-			shader2:function(){ shaderSelection = 1; rebuildParticles();},
-			shader3:function(){ shaderSelection = 2; rebuildParticles();},
-			shader4:function(){ shaderSelection = 3; rebuildParticles();},																														
-			shader5:function(){ shaderSelection = 4; rebuildParticles();},
-			shader6:function(){ shaderSelection = 5; rebuildParticles();}																														
-		};
-
-		h.add(shaderSelectionController,'shader1').name("Monjori Shader");
-		h.add(shaderSelectionController,'shader2').name("Shader 2");
-		h.add(shaderSelectionController,'shader3').name("Shader 3");
-		h.add(shaderSelectionController,'shader4').name("Shader 4");	
-		h.add(shaderSelectionController,'shader5').name("Cell shader");	
-		h.add(shaderSelectionController,'shader6').name("Flap shader");		
-	
-	}
 	
 	window.addEventListener( 'resize', onWindowResize, false );
 }
 
-function rebuildParticles() {
-	// TODO debug 
-	console.log('rebuildParticles' + scene.children);
-	
+function rebuildParticles() {	
 	B.x = particleOptions.betaX;
 	B.y = particleOptions.betaY;
 	B.z = particleOptions.betaZ;
@@ -328,78 +287,89 @@ function rebuildParticles() {
 	tailLifeSpanChaos = particleOptions.tailLifeSpanChaos;
 
 	tailSpawnInterval = particleOptions.tailSpawnInterval;
-
-	//-----
-	//create particles
-
-	//Create
-	//THREE.TextureLoader.crossOrigin = '';
-	//THREE.ImageUtils.crossOrigin = '';
-	texture = new THREE.TextureLoader().load( 'img/crate.gif' );
-	geometry = new THREE.BoxGeometry( 10, 10, 10 );
-
-	//------
-	//We can't use the cross origin image file on the file:/// during development... 
-	if (document.location.href.indexOf("file:///") > -1)
-	{
-		material = new THREE.MeshLambertMaterial( { color:0xffff00 } );
-	}	
-	else
-	{
-		material = new THREE.MeshLambertMaterial( { map:texture, color:0xffff00 } );
-	}
-	//------
 	
-	if (!window.mobilecheck())
-	{
-		//Mobile safari can't handle shader1, shader3, and shader4... shader2 is motionless
-		var paramsVertex = [
-			'vertexShader',
-			'vertexShader',
-			'vertexShader',
-			'vertexShader',
-			'vertexShaderCell',
-			'vertexShaderCell'
-		];
-		var params = [
-			[ 'fragment_shader1', uniforms1 ],
-			[ 'fragment_shader2', uniforms2 ],
-			[ 'fragment_shader3', uniforms1 ],
-			[ 'fragment_shader4', uniforms1 ],
-			[ 'fragment_shaderCell', uniforms3 ],
-			[ 'fragment_shaderTail', uniforms4 ]
-		];
+	// if (!window.mobilecheck())
+	// {
 
-		const loadMaterial = ( selection ) => new THREE.ShaderMaterial({
-			uniforms: params[ selection ][ 1 ],
-			vertexShader: document.getElementById( paramsVertex[ selection ] ).textContent,
-			fragmentShader: document.getElementById( params[ selection ][ 0 ] ).textContent
-		});
-		material = loadMaterial( shaderSelection );
-		material2 = loadMaterial ( 1 );
-		material3 = loadMaterial ( 2 );
+	// }
 
-		tailMaterial = loadMaterial(5); 
-	}
-	
-	
-	//Sphere
-	//geometry = new THREE.SphereGeometry( 1, 32, 16 );
-	//material = new THREE.MeshLambertMaterial( { color: 0x000088 } );
 
-	//remove all particles meshes from the scene
-	
-	
 	// clear entity
 	for (const entity of solver.entities)
 	{
-		scene.remove(entity.mesh);
+		if (entity.mesh)
+			scene.remove(entity.mesh);
 	}
 
+	scene.remove(particleMesh);
+	scene.remove(particleTailsMesh);
+
 	// set new solver
-	solver = new Solver();  
-	// _createParticleParticle();
+	solver = new Solver();
 	
+	initialParticle();	
+	initialTail();
+
+}
+
+function initialParticle() {
+	let particleAttribute = {
+		position: [],
+		size:  [],
+		opacity: [],
+	}
+	let tmp;
+	for (var i = 0; i < particleOptions.particleCount; i++) {
+		particleStack.push(i);
+		tmp = {
+			position: new THREE.Vector3(-500 + Math.floor((Math.random() * 1000) + 1), 5,  -500 + Math.floor((Math.random() * 1000) + 1)),
+			size: 80 + 100 * (Math.random() - 0.5),
+			opacity: 0.0,
+		};
+		particleAttribute.position[(i * 3) + 0] = tmp.position.x;
+		particleAttribute.position[(i * 3) + 1] = tmp.position.y;
+		particleAttribute.position[(i * 3) + 2] = tmp.position.z;
+		particleAttribute.size[i] = tmp.size;
+		particleAttribute.opacity[i] = tmp.opacity;
+	}
+
+	particleGeometry = new THREE.BufferGeometry();
+	particleGeometry.setAttribute( 'position',  new THREE.Float32BufferAttribute( particleAttribute.position, 3 ) );
+	particleGeometry.setAttribute( 'size', new THREE.Float32BufferAttribute( particleAttribute.size, 1 ).setUsage( THREE.DynamicDrawUsage ) );
+	particleGeometry.setAttribute( 'opacity', new THREE.Float32BufferAttribute( particleAttribute.opacity, 1 ).setUsage( THREE.DynamicDrawUsage ) );
+
+	particleMesh = new THREE.Points( particleGeometry, particleMaterial );
+	particleMesh.dynamic = true;
+	particleMesh.sortParticles = true;
+
+	scene.add(particleMesh);
+}
+
+function initialTail() {
+	let tmp;
+	for (let i=0;i<particleOptions.tailParticleCount;i++) {
+		particleTailsStack.push(i);
+		tmp = {
+			position: new THREE.Vector3(.1, .1, .1),
+			size: 0.0,
+			opacity: 0.0,
+		}
+		particleTailsAttribute.position[(i * 3) + 0] = tmp.position.x;
+		particleTailsAttribute.position[(i * 3) + 1] = tmp.position.y;
+		particleTailsAttribute.position[(i * 3) + 2] = tmp.position.z;
+		particleTailsAttribute.size[i] = tmp.size;
+		particleTailsAttribute.opacity[i] = tmp.opacity;
+	}
+
+	particleTailsGeometry = new THREE.BufferGeometry();
+	particleTailsGeometry.setAttribute( 'position', new THREE.Float32BufferAttribute( particleTailsAttribute.position, 3 ) );
+	particleTailsGeometry.setAttribute( 'size', new THREE.Float32BufferAttribute( particleTailsAttribute.size, 1 ).setUsage( THREE.DynamicDrawUsage ) );
+	particleTailsGeometry.setAttribute( 'opacity', new THREE.Float32BufferAttribute( particleTailsAttribute.opacity, 1 ).setUsage( THREE.DynamicDrawUsage ) );
+
+	particleTailsMesh = new THREE.Points( particleTailsGeometry, particleMaterial );
+	particleTailsMesh.dynamic = true;
+	particleTailsMesh.sortParticles = true;
+	scene.add(particleTailsMesh);
 }
 
 function initInput() {
@@ -435,7 +405,7 @@ function initInput() {
 					- uv : intersection point in the object's UV coordinates (THREE.Vector2)
 			*/
 		}
-		console.log("Nearest point : ",nearestPoint);
+		// console.log("Nearest point : ",nearestPoint);
 		// Creates a ball and throws it
 		let cube_size = 20;
 		var cubeGeometry = new THREE.CubeGeometry( cube_size, cube_size, cube_size );
@@ -490,15 +460,15 @@ function onWindowResize() {
 	camera.aspect = window.innerWidth / window.innerHeight;
 	camera.updateProjectionMatrix();
 
-	if (deviceOrientation)
-	{
+	// if (deviceOrientation)
+	// {
 
-	}
-	else
-	{
-		// *** OTHER CONTROLS WILL NEED THIS!!! ***
-		//controls.handleResize(); OrbitControls do not have this function 
-	}
+	// }
+	// else
+	// {
+	// 	// *** OTHER CONTROLS WILL NEED THIS!!! ***
+	// 	//controls.handleResize(); OrbitControls do not have this function 
+	// }
 
 	if (stereo)
 	{
@@ -526,69 +496,107 @@ function update()
 
 	generateGroundParticle();
 	
-
-	if ( keyboard.pressed("w") ) solver.tornadoC.x += 3;
-	if ( keyboard.pressed("s") ) solver.tornadoC.x -= 3;
-	if ( keyboard.pressed("a") ) solver.tornadoC.z += 3;
-	if ( keyboard.pressed("d") ) solver.tornadoC.z -= 3;
 	
-	
+	if ( keyboard.pressed("z") ) 
 	{	// do something   
+		if ( keyboard.pressed("w") ) solver.tornadoC.x += 3;
+		if ( keyboard.pressed("s") ) solver.tornadoC.x -= 3;
+		if ( keyboard.pressed("a") ) solver.tornadoC.z += 3;
+		if ( keyboard.pressed("d") ) solver.tornadoC.z -= 3;
+	
 		// console.log("pressed Z");
 		// mesh = new THREE.Mesh( new THREE.BoxGeometry(20, 5, 20), material3 );//THREEx.Crates.createCrate1();   //
 		// mesh.position.set(-500 + Math.floor((Math.random() * 1000) + 1), 5,  -500 + Math.floor((Math.random() * 1000) + 1));
 		// scene.add(mesh);
-
-		// mesh.S = new THREE.Vector3(mesh.position.x, mesh.position.y, mesh.position.z);	//position
-		// mesh.V = new THREE.Vector3(0.0,0.1,0.1);//Math.floor((Math.random() * 1))-0.5,Math.floor((Math.random() * 1))-0.5); //velocity
-		// mesh.M = 3;								//mass
-		// mesh.mesh_falling = true;
-		// mesh.mesh_raising = false;
-		// mesh.isParticle = true;
-		// mesh.topCutOff = particleOptions.height + Math.floor((Math.random() * particleOptions.heightChaos) + 1)
-		// //G is the raising velocity and makes a great tornado when its randomness is varied
-		// //tempG just holds individual values for each particle
-		// mesh.tempG = new THREE.Vector3(G.x,G.y - Math.floor((Math.random()*particleOptions.betaLiftChaos) - particleOptions.betaLiftChaos/2.0) * .0001, G.z);// -.001
-		
-		// particles.push(mesh);
 	}
 
 	
 	// updates
 	solver.update();
-	for (let p of solver.particles)
+	updateShader();
+
+	for (const p of solver.particles)
 	{
 		if (Math.random() < 0.2)
-			createParticleTail(p.position.clone());
+			createParticleTail(p);
 	}
+
+	updateParticleTail();
+
 	controls.update();
 	stats.update();
-	updateParticleTail();
+
+}
+
+function updateShader() {
+	let positions = particleMesh.geometry.attributes.position.array;
+	let opacitys = particleMesh.geometry.attributes.opacity.array;
+
+	while (particleDestroyStack.length) {
+		idx = particleDestroyStack.pop();
+		opacitys[idx] = 0.0;
+		particleStack.push(idx);
+	}
+
+	for (const entity of solver.particles)
+	{
+		idx = entity.meshIdx;
+		if (!entity.isDestroy) {
+			pos = entity.position;
+			positions[(idx * 3) + 0] = pos.x;
+			positions[(idx * 3) + 1] = pos.y;
+			positions[(idx * 3) + 2] = pos.z;
+		}
+		// console.log(idx);
+	}
+
+	particleMesh.geometry.attributes.position.needsUpdate = true;
+	particleMesh.geometry.attributes.opacity.needsUpdate = true;
+  	particleMesh.geometry.setDrawRange( 0, positions.length );
+}
+
+function onParticleDestroy(entity) {
+	particleDestroyStack.push(entity.meshIdx);
 }
 
 var cnt = 0;
 function generateGroundParticle()
-{	
-	if (cnt == 200) return;
-	cnt++;
+{
+	var positions = particleMesh.geometry.attributes.position.array;
+	var sizes = particleMesh.geometry.attributes.size.array;
+	var opacitys = particleMesh.geometry.attributes.opacity.array;
+
+	let needUpdate = false;
 	//if (currFrameTime - lastParticleGenerateTime >= 1/particleGenerateRate)
-	for (let i=0; i<particleGenerateRate; i++)
+	for (let i=0; i<particleGenerateRate && particleStack.length; i++)
 	{
+		let particleIdx = particleStack.pop();
+
 		lastParticleGenerateTime = currFrameTime;
-		let mesh = new THREE.Mesh(geometry, material);
 		let pos = new THREE.Vector3(1000*Math.random() - 500, 20, 1000*Math.random() - 500);
-		mesh.position.copy(pos);
 		let particle = new Particle({
-			mesh: mesh,
+			meshIdx: particleIdx,
 			mass: 0.01 + Math.random()*particleMassChaos,
 			position: new THREE.Vector3().copy(pos),
-			velocity: new THREE.Vector3()
+			velocity: new THREE.Vector3(),
+			size: sizes[particleIdx],
+			onDestroy: onParticleDestroy,
 		});
 		solver.addParticle(particle);
-		scene.add(mesh);
+
+		positions[(particleIdx * 3) + 0] = pos.x;
+		positions[(particleIdx * 3) + 1] = pos.y;
+		positions[(particleIdx * 3) + 2] = pos.z;
+		opacitys[particleIdx] = 1.0;
+		needUpdate = true;
+	}
+
+	if (needUpdate) {
+		particleMesh.geometry.attributes.position.needsUpdate = true;
+		particleMesh.geometry.attributes.opacity.needsUpdate = true;
+	  	particleMesh.geometry.setDrawRange( 0, opacitys.length );
 	}
 }
-
 
 // for debug
 function _createParticleParticle() 
@@ -606,35 +614,54 @@ function _createParticleParticle()
 	scene.add(mesh);		
 }
 
-function createParticleTail( pos ) // flap - create tail for particle
+function createParticleTail( entity ) // flap - create tail for particle
 {
-	mesh = new THREE.Mesh( tailGeometry, tailMaterial );//THREEx.Crates.createCrate1();   //
-	mesh.position.set(pos.x, pos.y, pos.z);
-	scene.add(mesh);
-	mesh.life = Math.random() * tailLifeSpanChaos;
-	mesh.maxlife = mesh.life;
-	mesh.isParticle = true;
-	
-	particleTails.push(mesh);
+	if (particleTailsStack.length <= 0) return;
+	if (entity.isDestroy) return;
+	// console.log(particleTailsStack.length);
+
+	let positions = particleTailsMesh.geometry.attributes.position.array;
+	let opacitys = particleTailsMesh.geometry.attributes.opacity.array;
+	let sizes = particleTailsMesh.geometry.attributes.size.array;
+
+	let idx = particleTailsStack.pop();
+
+	positions[(idx * 3) + 0] = entity.position.x;
+	positions[(idx * 3) + 1] = entity.position.y;
+	positions[(idx * 3) + 2] = entity.position.z;
+	opacitys[idx] = 1.0;
+	sizes[idx] = entity.size;
+	particleTailsAttribute.alive[idx] = particleOptions.tailLifeSpanChaos;
+
+	particleTailsMesh.geometry.attributes.position.needsUpdate = true;
+	particleTailsMesh.geometry.attributes.opacity.needsUpdate = true;
+	particleTailsMesh.geometry.attributes.opacity.needsUpdate = true;
+  	particleTailsMesh.geometry.setDrawRange( 0, positions.length );
 }
 
 function updateParticleTail()
 {
-	for (var i = particleTails.length-1; i >= 0; i--)
-	{
-		var particle = particleTails[i];
-		particle.life -= dt;
+	let opacitys = particleTailsMesh.geometry.attributes.opacity.array;
+	let sizes = particleTailsMesh.geometry.attributes.size.array;
 
-		// remove
-		if( particle.life < 0 )
-		{
-			particleTails.splice(i, 1);
-			scene.remove(particle);
+	for(let i=0;i<opacitys.length;i++) {
+		if (opacitys[i] <= 0.0) continue;
+
+		particleTailsAttribute.alive[i] -= dt;
+		let life = particleTailsAttribute.alive[i];
+		if (life > 0) {
+			opacitys[i] = life / particleOptions.tailLifeSpanChaos;
+			sizes[i] -= life / particleOptions.tailLifeSpanChaos;
 		}
-
-		var ms = (particle.life)/particle.maxlife;
-		particle.scale.set(ms,ms,ms);
+		else {
+			opacitys[i] = 0.0;
+			particleTailsStack.push(i);
+		}
 	}
+	
+	particleTailsMesh.geometry.attributes.opacity.needsUpdate = true;
+	particleTailsMesh.geometry.attributes.opacity.needsUpdate = true;
+  	particleTailsMesh.geometry.setDrawRange( 0, opacitys.length );
 }
 
 if (window.mobilecheck())
@@ -647,15 +674,10 @@ function render()
 
 		//This function does not work on iOS safari as of Three.js-r76
 		var delta = clock.getDelta();
-
-		uniforms1.time.value += delta * 5;
-		uniforms2.time.value = clock.elapsedTime;
-	
 	}
 	else
 	{
-		uniforms1.time.value += dt * 5;
-		uniforms2.time.value = clock.elapsedTime;
+
 
 	}
 	
