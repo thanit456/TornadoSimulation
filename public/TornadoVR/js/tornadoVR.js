@@ -239,9 +239,18 @@ function init()
 
 	// material (attributes)
 	h = gui.addFolder("Tornado Config");
-	h.add(solver, "tornadoBaseR", 50, 500, 100);
-	h.add(solver, "tornadoH", 100, 1000, 2000);
-	h.add(solver, "tornadoHChaos", 20, 200, 50);
+	h.add(solver, "tornadoBaseR", 50, 500, 100).name("base radius");
+	h.add(solver, "tornadoH", 100, 1000, 2000).name("lift up height");
+	h.add(solver, "tornadoHChaos", 20, 200, 50).name("lift up chaos");
+	h.add(solver, "MAX_TRIES", 1, 10, 5).name("max solver restart");
+	h.add(solver.Fup, "y", 50, 1000, 100).name("Up force");
+	h.add(solver, "suckMag", 50, 1000, 100).name("suck force magnitude");
+	h.add(solver, "initVMag", 50, 1000, 100).name("Init VMag");
+	h.add(solver.gravity, "y", -4*9800, -200, -9800).name("Gravity").onChange(e => {
+		solver.gravity.y *= -100; // scale according to flap code
+	});
+
+	
 
 
 
@@ -373,7 +382,7 @@ function initialTail() {
 }
 
 function initInput() {
-	window.addEventListener('mousedown', function(event) {
+	document.querySelector('#ThreeJS').addEventListener('mousedown', function(event) {
 		mouseCoords.set(
 			// ! fix ray casting to pointing to ground
 			( event.clientX / window.innerWidth ) * 2 - 1,
@@ -384,7 +393,6 @@ function initInput() {
 
 		var intersects = raycaster.intersectObjects( scene.children );
 
-		this.console.log("Object : ");
 		var minDistance = Number.MAX_VALUE;
 		var nearestPoint = THREE.Vector3(0, 0, 0);
 		for ( var i = 0; i < intersects.length; i++ ) {

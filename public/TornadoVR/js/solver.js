@@ -135,7 +135,12 @@ class Solver {
     tornadoBaseR = 100;
     tornadoH = 200;
     tornadoHChaos = 50; 
+    
+    
     Fup = new THREE.Vector3(0.0, 100, 0.0);
+    suckMag = 100;
+    initVMag = 500;
+    tornadoFactor = 100;
 
     // tail
     lifeChaos = 100;
@@ -183,12 +188,7 @@ class Solver {
         // temporary remove gravity
         this.derivatives.forEach((dp, idx) =>{
             const entity = this.entities[idx];
-            
-            //parameter // TODO delete
-            const suckMag = 100;
-            const initVMag = 500;
-            const tornadoFactor = 100;
-
+    
             // vecotor
             const vecPC = this.tornadoC.clone().sub(entity.position);
             vecPC.y = 0;
@@ -207,7 +207,7 @@ class Solver {
             {
                 entity.isRaising = true;
                 entity.velocity.copy(vecT);
-                entity.velocity.multiplyScalar(initVMag);
+                entity.velocity.multiplyScalar(this.initVMag);
                 entity.velocity.y = 0;
                 const t = this.tornadoC;
                 // console.log(t);
@@ -229,7 +229,7 @@ class Solver {
                 Fup.multiplyScalar(h_hmax)
                 dp._forceAcc.add(Fup);
                 
-                dp._forceAcc.add(vecT.clone().multiplyScalar(Math.random()*tornadoFactor*h_hmax));
+                dp._forceAcc.add(vecT.clone().multiplyScalar(Math.random()*this.tornadoFactor*h_hmax));
                 if (entity.position.y > this.tornadoH - Math.random()*this.tornadoHChaos)
                 {
                     entity.isRaising = false;
@@ -243,11 +243,8 @@ class Solver {
                 {
                     const Fsuck = new THREE.Vector3();
                     Fsuck.copy(vecPCNorm);
-                    Fsuck.multiplyScalar(suckMag);
+                    Fsuck.multiplyScalar(this.suckMag);
                     dp._forceAcc.add(Fsuck);
-                    if (entity.isRigid) {
-                        console.log(dp._forceAcc);
-                    }
                 }
             }
 
