@@ -544,7 +544,7 @@ function generateGroundParticle()
 	{
 		lastParticleGenerateTime = currFrameTime;
 		let mesh = new THREE.Mesh(geometry, material);
-		let pos = new THREE.Vector3(1000*Math.random() - 500, 100, 1000*Math.random() - 500);
+		let pos = new THREE.Vector3(1000*Math.random() - 500, 50, 1000*Math.random() - 500);
 		mesh.position.copy(pos);
 		let particle = new Particle({
 			mesh: mesh,

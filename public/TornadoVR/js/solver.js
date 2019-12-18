@@ -4,6 +4,7 @@ class Entity {
     velocity;
     _forceAcc;
     mass;
+    isRaising = false;
     isDestroy = false;
     constructor({mesh, mass, position, velocity, _forceAcc}) {
         this.mesh = mesh;
@@ -97,7 +98,8 @@ class Solver {
     tornadoCenter = new THREE.Vector3();
     vecUp = new THREE.Vector3(0.0,1.0,0.0);
 
-    defaultTimestep = 1/60; // assume 60 FPS
+    defaultTimestep = 1/30; //TODO work around
+    //defaultTimestep = 1/60; // assume 60 FPS
 
     tries = 0;
     MAX_TRIES = 10;
@@ -142,15 +144,16 @@ class Solver {
             const entity = this.entities[idx];
 
             // parameter
-            const lmin = 100;
-            const lmax = 400;
-            const d = 50;
-            const upMag = 1000;
+            const lmin = 50;
+            const lmax = 200;
+            const d = 10;
+            const upMag = 200;
             const suckMag = 500;
-            const vtMag = 700;
-            const tornadoMag = 200;
-            const tornadoH = 500;
+            const vtMag = 1000;
+            const tornadoMag = 0;
+            const tornadoH = 200;
             const tornadoHChaos = 200;
+            const suckHeight = 100;
 
             const V = entity.velocity;
             const height = entity.position.y;
@@ -181,20 +184,13 @@ class Solver {
             // magnitude
             //testForce.multiplyScalar(2 - Math.log(Math.sqrt(distToEye_2) + 1));
 
-            dp._forceAcc.add(Fg);
+            //dp._forceAcc.add(Fg);
             
             
             if (height < tornadoH)
             {
-                if (r > l+d || r <= l )
-                {
-                    Vsuck.addVectors(vecPA, vecT.clone().multiplyScalar(l + Math.random()*d));
-                    Vsuck.normalize();
-                    Vsuck.multiplyScalar(suckMag);
-                    Vsuck.y = 0;
-                    Vf.add(Vsuck);
-                }
-                else
+                
+                if ( entity.isRaising )
                 {  
                     dp._forceAcc.add(Fup);
                     
@@ -206,13 +202,27 @@ class Solver {
                     // V tornado
                     Vtornado.copy(vecPANorm).multiplyScalar(-1*Math.random()*tornadoMag);
                     Vf.add(Vtornado);
-
-                    Vf.add(Vsuck);
                 }
+                else
+                {
+                    if (height < suckHeight)
+                    {
+                        Vsuck.addVectors(vecPA, vecT.clone().multiplyScalar(l + Math.random()*d));
+                        Vsuck.normalize();
+                        Vsuck.multiplyScalar(suckMag);
+                        Vsuck.y = 0;
+                        Vf.add(Vsuck);
+                    }
+                    if (r < lmin + 40)
+                    {
+                        entity.isRaising = true;
+                    }
+                }
+
             }
             else
             {
-
+                entity.isRaising = false;
             }
 
             const dv = (new THREE.Vector3).subVectors(Vf, V);
