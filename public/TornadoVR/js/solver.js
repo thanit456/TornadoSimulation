@@ -6,12 +6,16 @@ class Entity {
     mass;
     isDestroy = false;
     isRaising = false;
+
+    centerOfRotation;
+
     constructor({mesh, mass, position, velocity, _forceAcc}) {
+        this.centerOfRotation = position.clone();
         this.mesh = mesh;
         this.mass = mass;
-        this.position = position ? new THREE.Vector3().copy(position) : new THREE.Vector3(0, 0, 0);
-        this.velocity = velocity ? new THREE.Vector3().copy(velocity) : new THREE.Vector3(0, 0, 0);
-        this._forceAcc = _forceAcc ? new THREE.Vector3().copy(_forceAcc) : new THREE.Vector3(0, 0, 0);
+        this.position = position ? position.clone() : new THREE.Vector3(0, 0, 0);
+        this.velocity = velocity ? velocity.clone() : new THREE.Vector3(0, 0, 0);
+        this._forceAcc = _forceAcc ? _forceAcc.clone() : new THREE.Vector3(0, 0, 0);
     }
 
     destroy() {
@@ -35,8 +39,8 @@ class Particle extends Entity {
         super({mesh, mass, position, velocity, _forceAcc});
     }
     subUpdate(dt) {
-        if(this.position.length() > 1000)
-            this.destroy();
+        // if(this.position.length() > 1000)
+        //     this.destroy();
     }
 }
 
@@ -99,7 +103,7 @@ class Solver {
     derivatives_rigid = [];
 
     // gravity
-    gravity = new THREE.Vector3(0.0, -980, 0.0); // gravity too weak
+    gravity = new THREE.Vector3(0.0, -9800, 0.0); // gravity too weak
     
     // assist
     vecUp = new THREE.Vector3(0.0, 1.0, 0.0);
@@ -164,8 +168,9 @@ class Solver {
             const tornadoFactor = 100;
 
             // vecotor
-            const vecPC = (new THREE.Vector3()).subVectors(this.tornadoC, entity.position);
+            const vecPC = this.tornadoC.clone().sub(entity.position);
             vecPC.y = 0;
+
             const vecPCNorm = (new THREE.Vector3()).copy(vecPC);
             vecPCNorm.normalize();
             const vecT = (new THREE.Vector3()).crossVectors(vecPC, this.vecUp);
@@ -182,6 +187,9 @@ class Solver {
                 entity.velocity.copy(vecT);
                 entity.velocity.multiplyScalar(initVMag);
                 entity.velocity.y = 0;
+                const t = this.tornadoC;
+                // console.log(t);
+                entity.centerOfRotation.set(t.x, t.y, t.z);
                 // entity.destroy()
             }
             
@@ -203,12 +211,11 @@ class Solver {
                 if (entity.position.y > this.tornadoH - Math.random()*this.tornadoHChaos)
                 {
                     entity.isRaising = false;
-                }
+                }                
             }
             else
             {
                 dp._forceAcc.add(Fg);
-                
                 // suck to tornado base
                 if (entity.position.y <= 50)
                 {
@@ -289,6 +296,16 @@ class Solver {
             }) 
         }
 
+        this.entities.forEach(e => {
+            if (e instanceof RigidBody && e.position.y <= e.size/2) {
+                e.position = e.size/2;
+                const n = new THREE.Vector3(0, 1, 0);
+                flip(e.velocity, n, 0.6);
+            } else if (e.position < 1) {
+                e.position = 2/2;
+            }
+        })
+
         this.rigidbodies.forEach((rb, idx) => {
             if (idx != minHitParts.point && idx != minHitParts.otherPoint) {
                 const deriv = this.derivatives_rigid[idx];
@@ -298,8 +315,20 @@ class Solver {
         
         this.particles.forEach((p, idx) => {
             const deriv = this.derivatives_particle[idx];
-            p.update(deriv, dt);
+            p.update(deriv, minHit);
         })
+
+        this.entities.forEach(e => {
+            if (e.isRaising){
+                const centerSuck = this.tornadoC.clone().sub(e.centerOfRotation);
+                centerSuck.y = 0;
+                centerSuck.normalize().multiplyScalar(this.suckMag);
+                if (centerSuck.length() > 0.1)
+                    console.log(centerSuck);
+                e.position.add(centerSuck.multiplyScalar(minHit * 0.02));
+            }
+        });
+
         // colliding
         if (minHitParts.point){
             const x1 = this.rigidbodies[minHitParts.point];

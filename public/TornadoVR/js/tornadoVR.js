@@ -248,8 +248,19 @@ function init()
 	rebuildParticles();
 
 	var gui = new dat.GUI();
+	// solver = {
+	// 	tornadoBaseR: 100,
+	// 	tornadoH: 200,
+	// 	tornadoHChaos: 50,
+	// };
 
 	// material (attributes)
+	h = gui.addFolder("Tornado Config");
+	h.add(solver, "tornadoBaseR", 50, 500, 100);
+	h.add(solver, "tornadoH", 100, 1000, 2000);
+	h.add(solver, "tornadoHChaos", 20, 200, 50);
+
+
 
 	h = gui.addFolder( "Particle Options" );
 
@@ -506,28 +517,33 @@ function update()
 
 	generateGroundParticle();
 	
-	/*
-	if ( keyboard.pressed("z") ) 
-	{	// do something   
-		console.log("pressed Z");
-		mesh = new THREE.Mesh( new THREE.BoxGeometry(20, 5, 20), material3 );//THREEx.Crates.createCrate1();   //
-		mesh.position.set(-500 + Math.floor((Math.random() * 1000) + 1), 5,  -500 + Math.floor((Math.random() * 1000) + 1));
-		scene.add(mesh);
 
-		mesh.S = new THREE.Vector3(mesh.position.x, mesh.position.y, mesh.position.z);	//position
-		mesh.V = new THREE.Vector3(0.0,0.1,0.1);//Math.floor((Math.random() * 1))-0.5,Math.floor((Math.random() * 1))-0.5); //velocity
-		mesh.M = 3;								//mass
-		mesh.mesh_falling = true;
-		mesh.mesh_raising = false;
-		mesh.isParticle = true;
-		mesh.topCutOff = particleOptions.height + Math.floor((Math.random() * particleOptions.heightChaos) + 1)
-		//G is the raising velocity and makes a great tornado when its randomness is varied
-		//tempG just holds individual values for each particle
-		mesh.tempG = new THREE.Vector3(G.x,G.y - Math.floor((Math.random()*particleOptions.betaLiftChaos) - particleOptions.betaLiftChaos/2.0) * .0001, G.z);// -.001
+	if ( keyboard.pressed("w") ) solver.tornadoC.x += 3;
+	if ( keyboard.pressed("s") ) solver.tornadoC.x -= 3;
+	if ( keyboard.pressed("a") ) solver.tornadoC.z += 3;
+	if ( keyboard.pressed("d") ) solver.tornadoC.z -= 3;
+	
+	
+	{	// do something   
+		// console.log("pressed Z");
+		// mesh = new THREE.Mesh( new THREE.BoxGeometry(20, 5, 20), material3 );//THREEx.Crates.createCrate1();   //
+		// mesh.position.set(-500 + Math.floor((Math.random() * 1000) + 1), 5,  -500 + Math.floor((Math.random() * 1000) + 1));
+		// scene.add(mesh);
+
+		// mesh.S = new THREE.Vector3(mesh.position.x, mesh.position.y, mesh.position.z);	//position
+		// mesh.V = new THREE.Vector3(0.0,0.1,0.1);//Math.floor((Math.random() * 1))-0.5,Math.floor((Math.random() * 1))-0.5); //velocity
+		// mesh.M = 3;								//mass
+		// mesh.mesh_falling = true;
+		// mesh.mesh_raising = false;
+		// mesh.isParticle = true;
+		// mesh.topCutOff = particleOptions.height + Math.floor((Math.random() * particleOptions.heightChaos) + 1)
+		// //G is the raising velocity and makes a great tornado when its randomness is varied
+		// //tempG just holds individual values for each particle
+		// mesh.tempG = new THREE.Vector3(G.x,G.y - Math.floor((Math.random()*particleOptions.betaLiftChaos) - particleOptions.betaLiftChaos/2.0) * .0001, G.z);// -.001
 		
-		particles.push(mesh);
+		// particles.push(mesh);
 	}
-	*/
+
 	
 	// updates
 	solver.update();
@@ -541,9 +557,11 @@ function update()
 	updateParticleTail();
 }
 
+var cnt = 0;
 function generateGroundParticle()
 {	
-
+	if (cnt == 200) return;
+	cnt++;
 	//if (currFrameTime - lastParticleGenerateTime >= 1/particleGenerateRate)
 	for (let i=0; i<particleGenerateRate; i++)
 	{
