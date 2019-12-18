@@ -109,7 +109,7 @@ class Solver {
     
     // tornado
     tornadoC = new THREE.Vector3(0.0, 0.0, 0.0); //tornado high;
-    tornadoBaseR = 40;
+    tornadoBaseR = 100;
     tornadoH = 200;
     tornadoHChaos = 50; 
     Fup = new THREE.Vector3(0.0, 100, 0.0);
@@ -182,12 +182,12 @@ class Solver {
                 entity.velocity.copy(vecT);
                 entity.velocity.multiplyScalar(initVMag);
                 entity.velocity.y = 0;
-                console.log("transition");
+                // entity.destroy()
             }
             
             if (entity.isRaising)
             {
-                const h_hmax = entity.position.y / (this.tornadoH);
+                const h_hmax = entity.position.y / (this.tornadoH) + 0.05 ;
 
                 const vmag = Math.sqrt(Math.pow(entity.velocity.x,2) + Math.pow(entity.velocity.z,2)); 
                 const Vnew = vecT.clone().multiplyScalar(vmag);   
@@ -200,7 +200,6 @@ class Solver {
                 dp._forceAcc.add(Fup);
                 
                 dp._forceAcc.add(vecT.clone().multiplyScalar(Math.random()*tornadoFactor*h_hmax));
-
                 if (entity.position.y > this.tornadoH - Math.random()*this.tornadoHChaos)
                 {
                     entity.isRaising = false;
@@ -208,7 +207,7 @@ class Solver {
             }
             else
             {
-                // dp._forceAcc.add(Fg);
+                dp._forceAcc.add(Fg);
                 
                 // suck to tornado base
                 if (entity.position.y <= 50)
@@ -314,7 +313,8 @@ class Solver {
             this._update(dt-minHit);
         } else {
             this.entities.forEach(e => {
-                if (e.position.y <= 0){
+                if (e.position.y <= 0 && e.velocity.y < 0){
+                    e.position.y = 0;
                     const n = new THREE.Vector3(0, 1, 0); // vector along p1 -- p2
                     flip(e.velocity, n, 0.1);
                 }
