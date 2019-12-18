@@ -23,8 +23,8 @@ class Entity {
     }
     
     update(derivative, dt) {
-        this.position.add(derivative.position.multiplyScalar(dt));
-        this.velocity.add(derivative.velocity.multiplyScalar(dt));
+        this.position.add(derivative.position.clone().multiplyScalar(dt));
+        this.velocity.add(derivative.velocity.clone().multiplyScalar(dt));
         // this.position.add(derivative.position);
         // this.velocity.add(derivative.velocity);
         this.mesh.position.copy(this.position);
@@ -49,7 +49,10 @@ class RigidBody extends Entity {
     constructor({mesh, mass, position, velocity, _forceAcc, size}){
         super({mesh, mass, position, velocity, _forceAcc});
         this.size = size;
-        this.mesh.position.copy();
+    }
+
+    subUpdate(dt) {
+        this.mesh.position.copy(this.position);
     }
 }
 
@@ -67,7 +70,7 @@ const addVector = (v, x, y, z) => {
 
 const flip = (v, dir, elasticity = 1) => {
     let d1 = v.dot(dir);
-    v.sub(dir.multiplyScalar(d1*(1+elasticity)))
+    v.sub(dir.clone().multiplyScalar(d1*(1+elasticity)))
 }
 
 const intersection = (obj1, obj2) => {
@@ -223,6 +226,9 @@ class Solver {
                     Fsuck.copy(vecPCNorm);
                     Fsuck.multiplyScalar(suckMag);
                     dp._forceAcc.add(Fsuck);
+                    if (entity.isRigid) {
+                        console.log(dp._forceAcc);
+                    }
                 }
             }
 
@@ -270,7 +276,7 @@ class Solver {
                     if (intersection(point, otherPoint)) {
     
                         let lo=0, hi=dt, mid;
-                        while (hi-lo > 1e-2) { // reasonable difference
+                        while (hi-lo > 4e-4) { // reasonable difference
                             mid = (lo+hi)/2;
                             point.update(deriv, mid-dt);
                             otherPoint.update(otherDeriv, mid);
@@ -296,21 +302,21 @@ class Solver {
             }) 
         }
 
+        // ground
         this.entities.forEach(e => {
             if (e instanceof RigidBody && e.position.y <= e.size/2) {
-                e.position = e.size/2;
+                e.position.y = e.size/2;
                 const n = new THREE.Vector3(0, 1, 0);
                 flip(e.velocity, n, 0.6);
             } else if (e.position < 1) {
-                e.position = 2/2;
+                e.position.y = 2/2;
             }
         })
 
+        // update non colliding RB
         this.rigidbodies.forEach((rb, idx) => {
-            if (idx != minHitParts.point && idx != minHitParts.otherPoint) {
-                const deriv = this.derivatives_rigid[idx];
-                rb.update(deriv, minHit);
-            }
+            const deriv = this.derivatives_rigid[idx];
+            rb.update(deriv, minHit);
         });
         
         this.particles.forEach((p, idx) => {
@@ -352,17 +358,18 @@ class Solver {
 
         
 
-        // if (hit) {
-        //     console.log("min Hit distance is ", minHit);
-            
-        //     return 
-        // } else {
-        //     console.log("no hit");
-        //     this.rigidbodies.forEach((rb, idx) => {
-        //         const deriv = this.derivatives_rigid[idx];
-        //         rb.update(deriv, dt);
-        //     });
-        // }
+        if (hit) {
+            console.log("min Hit distance is ", minHit);
+            this.tries ++;
+            if (this.tries <= this.MAX_TRIES)
+                this._update(dt-minHit);
+        } else {
+            console.log("no hit");
+            this.rigidbodies.forEach((rb, idx) => {
+                const deriv = this.derivatives_rigid[idx];
+                rb.update(deriv, dt);
+            });
+        }
         //
         
         // REAL CONSTRAINT !!

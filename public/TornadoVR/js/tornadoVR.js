@@ -467,6 +467,15 @@ function initInput() {
 		//tempG just holds individual values for each particle
 		cube.tempG = new THREE.Vector3(G.x,G.y - Math.floor((Math.random()*particleOptions.betaLiftChaos) - particleOptions.betaLiftChaos/2.0) * .0001, G.z);// -.001
 		scene.add(cube);
+		solver.addRigidBody(new RigidBody({
+			_forceAcc: new THREE.Vector3(0, 0, 0),
+			mass: 0.02,
+			mesh: cube,
+			position: cube.position.clone(),
+			size: 14,
+			velocity: new THREE.Vector3(0, 0, 0),
+		}));
+		solver.entities[solver.entities.length-1].isRigid = 1;
 
 	// scene.add(cube);o.btVector3( pos.x, pos.y, pos.z ) );
 
