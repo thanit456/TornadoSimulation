@@ -5,6 +5,7 @@ class Entity {
     _forceAcc;
     mass;
     isDestroy = false;
+    isRaising = false;
     constructor({mesh, mass, position, velocity, _forceAcc}) {
         this.mesh = mesh;
         this.mass = mass;
@@ -20,6 +21,8 @@ class Entity {
     update(derivative, dt) {
         this.position.add(derivative.position.multiplyScalar(dt));
         this.velocity.add(derivative.velocity.multiplyScalar(dt));
+        // this.position.add(derivative.position);
+        // this.velocity.add(derivative.velocity);
         this.mesh.position.copy(this.position);
         this.subUpdate(dt);
     }
@@ -99,14 +102,19 @@ class Solver {
     derivatives_rigid = [];
 
     // gravity
-    gravity = new THREE.Vector3(0.0, -9.8, 0.0);
-    B = new THREE.Vector3(0, 20, 0);
+    gravity = new THREE.Vector3(0.0, -980, 0.0); // gravity too weak
+    
+    // assist
+    vecUp = new THREE.Vector3(0.0, 1.0, 0.0);
+    
     // tornado
-    tornadoCenter = new THREE.Vector3(0.0, 200, 0.0) //tornado high;
-    tornadog = 10;
-    tornadoB = new THREE.Vector3(0.0, 20, 0.0);
+    tornadoC = new THREE.Vector3(0.0, 0.0, 0.0); //tornado high;
+    tornadoBaseR = 40;
+    tornadoH = 200;
+    tornadoHChaos = 50; 
+    Fup = new THREE.Vector3(0.0, 100, 0.0);
 
-    defaultTimestep = 1/60; // assume 60 FPS
+    defaultTimestep = 1/120; // assume 60 FPS
 
     tries = 0;
     MAX_TRIES = 10;
@@ -150,43 +158,80 @@ class Solver {
         this.derivatives.forEach((dp, idx) =>{
             const entity = this.entities[idx];
             
-            const distToEye_2 = Math.pow(entity.position.x - this.tornadoCenter.x,2) + Math.pow(entity.position.z - this.tornadoCenter.z,2);
+            //parameter // TODO delete
+            const suckMag = 100;
+            const initVMag = 500;
+            const tornadoFactor = 100;
+
+            // vecot0r
+            const vecPC = (new THREE.Vector3()).subVectors(this.tornadoC, entity.position);
+            vecPC.y = 0;
+            const vecPCNorm = (new THREE.Vector3()).copy(vecPC);
+            vecPCNorm.normalize();
+            const vecT = (new THREE.Vector3()).crossVectors(vecPC, this.vecUp);
+            vecT.y = 0;
+            vecT.normalize();
+            // force
+            const Fg = this.gravity.clone();
+            Fg.multiplyScalar(entity.mass); 
             
-            const dirToEye = (new THREE.Vector3()).subVectors(this.tornadoCenter, entity.position);
-            dirToEye.y = 0.0;
-            dirToEye.normalize();
-
-            // suck by tornad
-            let suckOffset = (new THREE.Vector3()).crossVectors(dirToEye)
-            let suckForceXZ = (new THREE.Vector3()).copy(dirToEye);
-
-            // lesser by distance
-            suckForceXZ.multiplyScalar( 1000 / Math.max(distToEye_2, 1));
-            
-
-            let suckForceY = (new THREE.Vector3(0, 11, 0));
-
-            //let magneticForce = new THREE.Vector3().crossVectors(entity.velocity, this.tornadoB);
-            //magneticForce.multiplyScalar(-100/distToEye_2);
-
-            //if (entity.position.y < this.tornadoCenter.y)
-            // dp._forceAcc.add(this.gravity);
-            if (true)
+            if (vecPC.length() < this.tornadoBaseR && entity.position.y <= 50 
+            && !entity.isRaising)
             {
-                dp._forceAcc.add(suckForceXZ);
-                //dp._forceAcc.add(suckForceY);
-                //dp._forceAcc.add(magneticForce);
-                //dp._forceAcc.add(drag);
+                entity.isRaising = true;
+                entity.velocity.copy(vecT);
+                entity.velocity.multiplyScalar(initVMag);
+                entity.velocity.y = 0;
+                console.log("transition");
             }
+            
+            if (entity.isRaising)
+            {
+                const h_hmax = entity.position.y / (this.tornadoH);
+
+                const vmag = Math.sqrt(Math.pow(entity.velocity.x,2) + Math.pow(entity.velocity.z,2)); 
+                const Vnew = vecT.clone().multiplyScalar(vmag);   
+
+                entity.velocity.x = Vnew.x;
+                entity.velocity.z = Vnew.z;
+                // console.log(entity.position.y);
+                const Fup = this.Fup.clone();
+                Fup.multiplyScalar(h_hmax)
+                dp._forceAcc.add(Fup);
+                
+                dp._forceAcc.add(vecT.clone().multiplyScalar(Math.random()*tornadoFactor*h_hmax));
+
+                if (entity.position.y > this.tornadoH - Math.random()*this.tornadoHChaos)
+                {
+                    entity.isRaising = false;
+                }
+            }
+            else
+            {
+                // dp._forceAcc.add(Fg);
+                
+                // suck to tornado base
+                if (entity.position.y <= 50)
+                {
+                    const Fsuck = new THREE.Vector3();
+                    Fsuck.copy(vecPCNorm);
+                    Fsuck.multiplyScalar(suckMag);
+                    dp._forceAcc.add(Fsuck);
+                }
+            }
+
+            // console.log(dp._forceAcc);
+            //if (Math.abs(entity.position.x-this.tornadoBaseR) < 20 &&
+            //    Math.abs(entity.position.y))
         });
     }
 
     calcDerivs() {
         this.derivatives.forEach((dp, idx) => {
             const entity = this.entities[idx];
-            dp.position.copy(entity.velocity);
-            dp._forceAcc.multiplyScalar(1/dp.mass);
+            dp._forceAcc.multiplyScalar(1/entity.mass);
             dp.velocity.copy(dp._forceAcc);
+            dp.position.copy(entity.velocity);
         });
         // this.derivatives_rigid.forEach(dp => {
         //     dp.position = dp.velocity;

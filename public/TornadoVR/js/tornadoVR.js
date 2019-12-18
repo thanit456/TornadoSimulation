@@ -20,7 +20,7 @@ let solver = new Solver();
 
 // global variable for particle
 let particleMassChaos = 0.010;
-let particleGenerateRate = 1; // per frame
+let particleGenerateRate = 4; // per frame
 
 // particle generate
 let lastParticleGenerateTime = 0;
@@ -393,7 +393,7 @@ function rebuildParticles() {
 
 	// set new solver
 	solver = new Solver();  
-	_createParticleParticle();
+	//_createParticleParticle();
 	
 }
 
@@ -510,7 +510,7 @@ function update()
 	lastFrameTime = currFrameTime;
 	currFrameTime = lastFrameTime + dt;
 
-	//generateGroundParticle();
+	generateGroundParticle();
 	
 	if ( keyboard.pressed("z") ) 
 	{	// do something   
@@ -547,11 +547,11 @@ function generateGroundParticle()
 	{
 		lastParticleGenerateTime = currFrameTime;
 		let mesh = new THREE.Mesh(geometry, material);
-		let pos = new THREE.Vector3(1000*Math.random() - 500, 100, 1000*Math.random() - 500);
+		let pos = new THREE.Vector3(1000*Math.random() - 500, 20, 1000*Math.random() - 500);
 		mesh.position.copy(pos);
 		let particle = new Particle({
 			mesh: mesh,
-			mass: 0.001 + Math.random()*particleMassChaos,
+			mass: 0.01 + Math.random()*particleMassChaos,
 			position: new THREE.Vector3().copy(pos),
 			velocity: new THREE.Vector3()
 		});
@@ -565,11 +565,11 @@ function generateGroundParticle()
 function _createParticleParticle() 
 {	
 	let mesh = new THREE.Mesh(geometry, material);
-	let pos = new THREE.Vector3(100, 100, 100);
+	let pos = new THREE.Vector3(100, 20, 100);
 	mesh.position.copy(pos);
 	let particle = new Particle({
 		mesh: mesh,
-		mass: 0.001 + Math.random()*particleMassChaos,
+		mass: 1,
 		position: new THREE.Vector3().copy(pos),
 		velocity: new THREE.Vector3()
 	});
