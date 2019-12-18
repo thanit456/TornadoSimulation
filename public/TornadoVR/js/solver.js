@@ -7,11 +7,8 @@ class Entity {
     isDestroy = false;
     isRaising = false;
 
-<<<<<<< HEAD
     centerOfRotation;
 
-=======
->>>>>>> a19700521cdf44b9ec854fc23326d44e2967aa7c
     constructor({mesh, mass, position, velocity, _forceAcc}) {
         this.centerOfRotation = position.clone();
         this.mesh = mesh;
@@ -52,10 +49,6 @@ class Particle extends Entity {
     }
 
     subUpdate(dt) {
-<<<<<<< HEAD
-        // if(this.position.length() > 1000)
-        //     this.destroy();
-=======
         if(this.position.length() > 1000)
         {
             this.destroy();
@@ -64,7 +57,6 @@ class Particle extends Entity {
         }
 
         this.alive += dt;
->>>>>>> a19700521cdf44b9ec854fc23326d44e2967aa7c
     }
 }
 
