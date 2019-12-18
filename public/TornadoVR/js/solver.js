@@ -7,8 +7,11 @@ class Entity {
     isDestroy = false;
     isRaising = false;
 
+<<<<<<< HEAD
     centerOfRotation;
 
+=======
+>>>>>>> a19700521cdf44b9ec854fc23326d44e2967aa7c
     constructor({mesh, mass, position, velocity, _forceAcc}) {
         this.centerOfRotation = position.clone();
         this.mesh = mesh;
@@ -27,7 +30,8 @@ class Entity {
         this.velocity.add(derivative.velocity.multiplyScalar(dt));
         // this.position.add(derivative.position);
         // this.velocity.add(derivative.velocity);
-        this.mesh.position.copy(this.position);
+        if (!!this.mesh)
+            this.mesh.position.copy(this.position);
         this.subUpdate(dt);
     }
     
@@ -35,12 +39,32 @@ class Entity {
 }
 
 class Particle extends Entity {
-    constructor({mesh, mass, position, velocity, _forceAcc}){
+    meshIdx;
+    size;
+    onDestroy;
+    constructor({meshIdx, mass, position, velocity, _forceAcc, size, onDestroy}){
+        let mesh = null;
         super({mesh, mass, position, velocity, _forceAcc});
+
+        this.meshIdx = meshIdx;
+        this.size = size;
+        this.onDestroy = onDestroy;
     }
+
     subUpdate(dt) {
+<<<<<<< HEAD
         // if(this.position.length() > 1000)
         //     this.destroy();
+=======
+        if(this.position.length() > 1000)
+        {
+            this.destroy();
+            if (!!this.onDestroy)
+                this.onDestroy(this);
+        }
+
+        this.alive += dt;
+>>>>>>> a19700521cdf44b9ec854fc23326d44e2967aa7c
     }
 }
 
@@ -378,7 +402,8 @@ class Solver {
             {
                     this.entities.splice(i, 1);
                     this.derivatives.splice(i, 1);
-                    scene.remove(e.mesh);
+                    if (e.mesh)
+                        scene.remove(e.mesh);
             }
         }
 
