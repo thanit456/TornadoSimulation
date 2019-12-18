@@ -32,8 +32,6 @@ class Particle extends Entity {
         super({mesh, mass, position, velocity, _forceAcc});
     }
     subUpdate(dt) {
-        if(this.position.y < -500)
-            this.destroy();
     }
 }
 
@@ -93,12 +91,11 @@ class Solver {
     derivatives_rigid = [];
 
     // gravity
-    gravity = new THREE.Vector3(0.0, -9.8, 0.0);
-    B = new THREE.Vector3(0, 20, 0);
+    gravity = new THREE.Vector3(0.0, -98, 0.0);
+
     // tornado
-    tornadoCenter = new THREE.Vector3(0.0, 200, 0.0) //tornado high;
-    tornadog = 10;
-    tornadoB = new THREE.Vector3(0.0, 20, 0.0);
+    tornadoCenter = new THREE.Vector3();
+    vecUp = new THREE.Vector3(0.0,1.0,0.0);
 
     defaultTimestep = 1/60; // assume 60 FPS
 
@@ -143,35 +140,84 @@ class Solver {
         // temporary remove gravity
         this.derivatives.forEach((dp, idx) =>{
             const entity = this.entities[idx];
+
+            // parameter
+            const lmin = 100;
+            const lmax = 400;
+            const d = 50;
+            const upMag = 1000;
+            const suckMag = 500;
+            const vtMag = 700;
+            const tornadoMag = 200;
+            const tornadoH = 500;
+            const tornadoHChaos = 200;
+
+            const V = entity.velocity;
+            const height = entity.position.y;
+            const l = lmin + (lmax-lmin)*(height/(tornadoH));
             
-            const distToEye_2 = Math.pow(entity.position.x - this.tornadoCenter.x,2) + Math.pow(entity.position.z - this.tornadoCenter.z,2);
+            // Force
+            const Fg = this.gravity.clone().multiplyScalar(entity.mass);
+            const Fup = this.vecUp.clone().multiplyScalar(upMag);
             
-            const dirToEye = (new THREE.Vector3()).subVectors(this.tornadoCenter, entity.position);
-            dirToEye.y = 0.0;
-            dirToEye.normalize();
-
-            // suck by tornad
-            let suckOffset = (new THREE.Vector3()).crossVectors(dirToEye)
-            let suckForceXZ = (new THREE.Vector3()).copy(dirToEye);
-
-            // lesser by distance
-            suckForceXZ.multiplyScalar( 1000 / Math.max(distToEye_2, 1));
+            // Velocity
+            const Vf = new THREE.Vector3();
+            const Vsuck = new THREE.Vector3();
+            let Vt = new THREE.Vector3();
+            let Vtornado = new THREE.Vector3();
             
+            const vecPA = new THREE.Vector3();
+            vecPA.subVectors(this.tornadoCenter, entity.position);
+            vecPA.y = 0.0; // set to plane XZ
 
-            let suckForceY = (new THREE.Vector3(0, 11, 0));
+            const r = Math.abs( vecPA.length() );
+            const vecT = (new THREE.Vector3).crossVectors(vecPA, this.vecUp).normalize();
 
-            //let magneticForce = new THREE.Vector3().crossVectors(entity.velocity, this.tornadoB);
-            //magneticForce.multiplyScalar(-100/distToEye_2);
+            const vecPANorm = vecPA.clone();
+            vecPANorm.normalize();
 
-            //if (entity.position.y < this.tornadoCenter.y)
-            // dp._forceAcc.add(this.gravity);
-            if (true)
+            // dir
+            //let testForce = ((new THREE.Vector3()).crossVectors(dirToEye, upVec)).normalize()
+            // magnitude
+            //testForce.multiplyScalar(2 - Math.log(Math.sqrt(distToEye_2) + 1));
+
+            dp._forceAcc.add(Fg);
+            
+            
+            if (height < tornadoH)
             {
-                dp._forceAcc.add(suckForceXZ);
-                //dp._forceAcc.add(suckForceY);
-                //dp._forceAcc.add(magneticForce);
-                //dp._forceAcc.add(drag);
+                if (r > l+d || r <= l )
+                {
+                    Vsuck.addVectors(vecPA, vecT.clone().multiplyScalar(l + Math.random()*d));
+                    Vsuck.normalize();
+                    Vsuck.multiplyScalar(suckMag);
+                    Vsuck.y = 0;
+                    Vf.add(Vsuck);
+                }
+                else
+                {  
+                    dp._forceAcc.add(Fup);
+                    
+                    // V tangent
+                    Vt = vecT.clone();
+                    Vt.multiplyScalar(vtMag);
+                    Vf.add(Vt);
+
+                    // V tornado
+                    Vtornado.copy(vecPANorm).multiplyScalar(-1*Math.random()*tornadoMag);
+                    Vf.add(Vtornado);
+
+                    Vf.add(Vsuck);
+                }
             }
+            else
+            {
+
+            }
+
+            const dv = (new THREE.Vector3).subVectors(Vf, V);
+            dv.y = 0;
+            dp._forceAcc.add(dv); 
         });
     }
 
