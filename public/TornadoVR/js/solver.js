@@ -35,22 +35,25 @@ class Entity {
 class Particle extends Entity {
     meshIdx;
     size;
-    opacity;
-    constructor({meshIdx, mass, position, velocity, _forceAcc, size, opacity}){
+    onDestroy;
+    constructor({meshIdx, mass, position, velocity, _forceAcc, size, onDestroy}){
         let mesh = null;
         super({mesh, mass, position, velocity, _forceAcc});
 
         this.meshIdx = meshIdx;
         this.size = size;
-        this.opacity = opacity;
+        this.onDestroy = onDestroy;
     }
 
     subUpdate(dt) {
         if(this.position.length() > 1000)
         {
             this.destroy();
-            this.opacity = 0.0;
+            if (!!this.onDestroy)
+                this.onDestroy(this);
         }
+
+        this.alive += dt;
     }
 }
 

@@ -20,7 +20,7 @@ let solver = new Solver();
 
 // global variable for particle
 let particleMassChaos = 0.010;
-let particleGenerateRate = 4; // per frame
+let particleGenerateRate = 16; // per frame
 
 // particle generate
 let lastParticleGenerateTime = 0;
@@ -30,21 +30,20 @@ var tailSpawnInterval = 0.02;
 var lastCreateTailTime = 0;
 var isCreateTailFrame = true;
 
-<<<<<<< HEAD
-=======
-// tail global constant
-var tailLifeSpanChaos = 0.00;
-var tailGeometry = new THREE.BoxGeometry( 9, 9, 9 );
-var tailMaterial;
-
->>>>>>> origin/master
 var tracersMesh = [];
 
+var particleTailsAttribute = {
+	position: [],
+	size:  [],
+	opacity: [],
+	alive: [],
+}
 var particleTailsStack = [];
 var particleTailsGeometry = new THREE.BufferGeometry();
 var particleTailsMesh = new THREE.Mesh();
 
 var particleStack = [];
+var particleDestroyStack = [];
 var particleGeometry = new THREE.BufferGeometry();
 var particleMaterial = new THREE.ShaderMaterial();
 var particleMesh = new THREE.Mesh();
@@ -207,7 +206,7 @@ function init()
 	}
 
 	particleOptions = {
-		particleCount: 1000,
+		particleCount: 2000,
 		deltaTime:20,
 		betaX:0.0,
 		betaY:0.015,
@@ -237,7 +236,7 @@ function init()
 
 	h = gui.addFolder( "Particle Options" );
 
-	h.add( particleOptions, "particleCount", 1, 10000, 1 ).name( "#particles" ).onChange( rebuildParticles );
+	h.add( particleOptions, "particleCount", 1, 10000, 100 ).name( "#particles" ).onChange( rebuildParticles );
 	h.add( particleOptions, "deltaTime", 1, 1000, 1 ).name( "dt" ).onChange( rebuildParticles );
 	h.add( particleOptions, "gravity", 0, 0.1, 0.01 ).name( "Gravity" ).onChange( rebuildParticles );
 	h.add( particleOptions, "height", 0, 5000, 1 ).name( "height" ).onChange( rebuildParticles );
@@ -245,7 +244,7 @@ function init()
 	h.add( particleOptions, "instantRespawn" ).name( "instant respawn" ).onChange( rebuildParticles );
 	h.add( particleOptions, "tracer" ).name( "show tracer" ).onChange( rebuildParticles );
 	// tail
-	h.add( particleOptions, "tailParticleCount", 0, 1000, 50 ).name( "tail particle count").onChange( rebuildParticles );
+	h.add( particleOptions, "tailParticleCount", 0, 2000, 50 ).name( "tail particle count").onChange( rebuildParticles );
 	h.add( particleOptions, "tailSpawnInterval", 0, 1, 0.001 ).name( "tail spawn interval" ).onChange( rebuildParticles );
 	h.add( particleOptions, "tailLifeSpanChaos", 0, 20, 0.05 ).name( "tail life span chaos").onChange( rebuildParticles );
 
@@ -335,12 +334,7 @@ function initialParticle() {
 	scene.add(particleMesh);
 }
 
-function initialTail() {	
-	let particleTailsAttribute = {
-		position: [],
-		size:  [],
-		opacity: [],
-	}
+function initialTail() {
 	let tmp;
 	for (let i=0;i<particleOptions.tailParticleCount;i++) {
 		particleTailsStack.push(i);
@@ -356,7 +350,6 @@ function initialTail() {
 		particleTailsAttribute.opacity[i] = tmp.opacity;
 	}
 
-<<<<<<< HEAD
 	particleTailsGeometry = new THREE.BufferGeometry();
 	particleTailsGeometry.setAttribute( 'position', new THREE.Float32BufferAttribute( particleTailsAttribute.position, 3 ) );
 	particleTailsGeometry.setAttribute( 'size', new THREE.Float32BufferAttribute( particleTailsAttribute.size, 1 ).setUsage( THREE.DynamicDrawUsage ) );
@@ -366,12 +359,6 @@ function initialTail() {
 	particleTailsMesh.dynamic = true;
 	particleTailsMesh.sortParticles = true;
 	scene.add(particleTailsMesh);
-=======
-	// set new solver
-	solver = new Solver();  
-	// _createParticleParticle();
-	
->>>>>>> origin/master
 }
 
 function initInput() {
@@ -501,8 +488,15 @@ function update()
 	
 	// updates
 	solver.update();
-<<<<<<< HEAD
 	updateShader();
+
+	for (const p of solver.particles)
+	{
+		if (Math.random() < 0.2)
+			createParticleTail(p);
+	}
+
+	updateParticleTail();
 
 	controls.update();
 	stats.update();
@@ -513,14 +507,16 @@ function updateShader() {
 	let positions = particleMesh.geometry.attributes.position.array;
 	let opacitys = particleMesh.geometry.attributes.opacity.array;
 
+	while (particleDestroyStack.length) {
+		idx = particleDestroyStack.pop();
+		opacitys[idx] = 0.0;
+		particleStack.push(idx);
+	}
+
 	for (const entity of solver.particles)
 	{
 		idx = entity.meshIdx;
-		if (entity.isDestroy) {
-			opacitys[idx] = 0.0;
-			particleStack.push(idx);
-		}
-		else {
+		if (!entity.isDestroy) {
 			pos = entity.position;
 			positions[(idx * 3) + 0] = pos.x;
 			positions[(idx * 3) + 1] = pos.y;
@@ -529,20 +525,13 @@ function updateShader() {
 		// console.log(idx);
 	}
 
-
 	particleMesh.geometry.attributes.position.needsUpdate = true;
 	particleMesh.geometry.attributes.opacity.needsUpdate = true;
-  	particleMesh.geometry.setDrawRange( 0, positions.length ); 
-=======
-	for (let p of solver.particles)
-	{
-		if (Math.random() < 0.2)
-			createParticleTail(p.position.clone());
-	}
-	controls.update();
-	stats.update();
-	updateParticleTail();
->>>>>>> origin/master
+  	particleMesh.geometry.setDrawRange( 0, positions.length );
+}
+
+function onParticleDestroy(entity) {
+	particleDestroyStack.push(entity.meshIdx);
 }
 
 function generateGroundParticle()
@@ -565,7 +554,7 @@ function generateGroundParticle()
 			position: new THREE.Vector3().copy(pos),
 			velocity: new THREE.Vector3(),
 			size: sizes[particleIdx],
-			opacity: opacitys[particleIdx],
+			onDestroy: onParticleDestroy,
 		});
 		solver.addParticle(particle);
 
@@ -583,7 +572,6 @@ function generateGroundParticle()
 	}
 }
 
-
 // for debug
 function _createParticleParticle() 
 {	
@@ -600,20 +588,29 @@ function _createParticleParticle()
 	scene.add(mesh);		
 }
 
-function createParticleTail( pos ) // flap - create tail for particle
+function createParticleTail( entity ) // flap - create tail for particle
 {
-<<<<<<< HEAD
+	if (particleTailsStack.length <= 0) return;
+	if (entity.isDestroy) return;
+	// console.log(particleTailsStack.length);
 
-=======
-	mesh = new THREE.Mesh( tailGeometry, tailMaterial );//THREEx.Crates.createCrate1();   //
-	mesh.position.set(pos.x, pos.y, pos.z);
-	scene.add(mesh);
-	mesh.life = Math.random() * tailLifeSpanChaos;
-	mesh.maxlife = mesh.life;
-	mesh.isParticle = true;
-	
-	particleTails.push(mesh);
->>>>>>> origin/master
+	let positions = particleTailsMesh.geometry.attributes.position.array;
+	let opacitys = particleTailsMesh.geometry.attributes.opacity.array;
+	let sizes = particleTailsMesh.geometry.attributes.size.array;
+
+	let idx = particleTailsStack.pop();
+
+	positions[(idx * 3) + 0] = entity.position.x;
+	positions[(idx * 3) + 1] = entity.position.y;
+	positions[(idx * 3) + 2] = entity.position.z;
+	opacitys[idx] = 1.0;
+	sizes[idx] = entity.size;
+	particleTailsAttribute.alive[idx] = particleOptions.tailLifeSpanChaos;
+
+	particleTailsMesh.geometry.attributes.position.needsUpdate = true;
+	particleTailsMesh.geometry.attributes.opacity.needsUpdate = true;
+	particleTailsMesh.geometry.attributes.opacity.needsUpdate = true;
+  	particleTailsMesh.geometry.setDrawRange( 0, positions.length );
 }
 
 function updateParticleTail()
@@ -621,17 +618,24 @@ function updateParticleTail()
 	let opacitys = particleTailsMesh.geometry.attributes.opacity.array;
 	let sizes = particleTailsMesh.geometry.attributes.size.array;
 
-	
+	for(let i=0;i<opacitys.length;i++) {
+		if (opacitys[i] <= 0.0) continue;
 
-<<<<<<< HEAD
-	particleTailsMesh.geometry.attributes.opacity.needsUpdate = true;
-	// particleTailsMesh.geometry.attributes.size.needsUpdate = true;
-  	particleTailsMesh.geometry.setDrawRange( 0,  particleTails.length); 
-=======
-		var ms = (particle.life)/particle.maxlife;
-		particle.scale.set(ms,ms,ms);
+		particleTailsAttribute.alive[i] -= dt;
+		let life = particleTailsAttribute.alive[i];
+		if (life > 0) {
+			opacitys[i] = life / particleOptions.tailLifeSpanChaos;
+			sizes[i] -= life / particleOptions.tailLifeSpanChaos;
+		}
+		else {
+			opacitys[i] = 0.0;
+			particleTailsStack.push(i);
+		}
 	}
->>>>>>> origin/master
+	
+	particleTailsMesh.geometry.attributes.opacity.needsUpdate = true;
+	particleTailsMesh.geometry.attributes.opacity.needsUpdate = true;
+  	particleTailsMesh.geometry.setDrawRange( 0, opacitys.length );
 }
 
 if (window.mobilecheck())
