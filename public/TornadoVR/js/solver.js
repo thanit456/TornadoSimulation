@@ -6,6 +6,7 @@ class Entity {
     mass;
     isDestroy = false;
     isRaising = false;
+
     constructor({mesh, mass, position, velocity, _forceAcc}) {
         this.mesh = mesh;
         this.mass = mass;
@@ -23,7 +24,8 @@ class Entity {
         this.velocity.add(derivative.velocity.multiplyScalar(dt));
         // this.position.add(derivative.position);
         // this.velocity.add(derivative.velocity);
-        this.mesh.position.copy(this.position);
+        if (!!this.mesh)
+            this.mesh.position.copy(this.position);
         this.subUpdate(dt);
     }
     
@@ -31,12 +33,24 @@ class Entity {
 }
 
 class Particle extends Entity {
-    constructor({mesh, mass, position, velocity, _forceAcc}){
+    meshIdx;
+    size;
+    opacity;
+    constructor({meshIdx, mass, position, velocity, _forceAcc, size, opacity}){
+        let mesh = null;
         super({mesh, mass, position, velocity, _forceAcc});
+
+        this.meshIdx = meshIdx;
+        this.size = size;
+        this.opacity = opacity;
     }
+
     subUpdate(dt) {
         if(this.position.y < -500)
+        {
             this.destroy();
+            this.opacity = 0.0;
+        }
     }
 }
 
@@ -349,7 +363,8 @@ class Solver {
             {
                     this.entities.splice(i, 1);
                     this.derivatives.splice(i, 1);
-                    scene.remove(e.mesh);
+                    if (e.mesh)
+                        scene.remove(e.mesh);
             }
         }
 
