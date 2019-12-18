@@ -5,6 +5,7 @@ class Entity {
     _forceAcc;
     mass;
     isRaising = false;
+    isFalling = false;
     isDestroy = false;
     constructor({mesh, mass, position, velocity, _forceAcc}) {
         this.mesh = mesh;
@@ -192,7 +193,7 @@ class Solver {
                 
                 if ( entity.isRaising )
                 {  
-                    dp._forceAcc.add(Fup);
+                    // dp._forceAcc.add(Fup);
                     
                     // V tangent
                     Vt = vecT.clone();
