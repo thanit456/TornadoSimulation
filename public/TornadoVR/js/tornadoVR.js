@@ -11,8 +11,8 @@ var clock = new THREE.Clock();
 
 // custom global variables
 var totalGameTime = 0.0;
-var currFrameTime = 0.0;
-var lastFrameTime = 0.0;
+var currFrameTime = Date.now()/1000;
+var lastFrameTime = Date.now()/1000;
 var dt = 1/60;
 
 // solver
@@ -26,14 +26,12 @@ let particleGenerateRate = 4; // per frame
 let lastParticleGenerateTime = 0;
 
 // global varibles for tail
-var lastCreateTailTime = new Date().getTime() / 1000;
+var tailSpawnInterval = 0.02;
+var lastCreateTailTime = 0;
 var isCreateTailFrame = true;
 
 // tail global constant
-var tailSpawnInterval = 0.02;
-var tailLifeSpan = 0.5; 
-var tailLifeSpanChaos = 3.0;
-var tailMaxLifeSpan = tailLifeSpan + tailLifeSpanChaos;
+var tailLifeSpanChaos = 0.00;
 var tailGeometry = new THREE.BoxGeometry( 9, 9, 9 );
 var tailMaterial;
 
@@ -220,8 +218,7 @@ function init()
 		tracer:false,
 
 		tailSpawnInterval:0.02,
-		tailLifeSpan:0.5,
-		tailLifeSpanChaos:3.0
+		tailLifeSpanChaos:0.5
 
 	};
 
@@ -265,7 +262,6 @@ function init()
 	h.add( particleOptions, "tracer" ).name( "show tracer" ).onChange( rebuildParticles );
 	// tail
 	h.add( particleOptions, "tailSpawnInterval", 0, 1, 0.001 ).name( "tail spawn interval" ).onChange( rebuildParticles );
-	h.add( particleOptions, "tailLifeSpan", 0, 20, 0.05 ).name( "tail life span" ).onChange( rebuildParticles );
 	h.add( particleOptions, "tailLifeSpanChaos", 0, 20, 0.05 ).name( "tail life span chaos").onChange( rebuildParticles );
 
 	h = gui.addFolder( "Magnetic Field Options" );
@@ -318,9 +314,7 @@ function rebuildParticles() {
 	G.y = -particleOptions.GY;
 	G.z = -particleOptions.GZ;
 
-	tailLifeSpan = particleOptions.tailLifeSpan;
 	tailLifeSpanChaos = particleOptions.tailLifeSpanChaos;
-	tailMaxLifeSpan = particleOptions.tailLifeSpan + particleOptions.tailLifeSpanChaos;
 
 	tailSpawnInterval = particleOptions.tailSpawnInterval;
 
@@ -393,7 +387,7 @@ function rebuildParticles() {
 
 	// set new solver
 	solver = new Solver();  
-	//_createParticleParticle();
+	// _createParticleParticle();
 	
 }
 
@@ -512,6 +506,7 @@ function update()
 
 	generateGroundParticle();
 	
+	/*
 	if ( keyboard.pressed("z") ) 
 	{	// do something   
 		console.log("pressed Z");
@@ -532,11 +527,18 @@ function update()
 		
 		particles.push(mesh);
 	}
+	*/
 	
 	// updates
 	solver.update();
+	for (let p of solver.particles)
+	{
+		if (Math.random() < 0.2)
+			createParticleTail(p.position.clone());
+	}
 	controls.update();
 	stats.update();
+	updateParticleTail();
 }
 
 function generateGroundParticle()
@@ -582,8 +584,8 @@ function createParticleTail( pos ) // flap - create tail for particle
 	mesh = new THREE.Mesh( tailGeometry, tailMaterial );//THREEx.Crates.createCrate1();   //
 	mesh.position.set(pos.x, pos.y, pos.z);
 	scene.add(mesh);
-
-	mesh.life = tailLifeSpan + (Math.random() * tailLifeSpanChaos);
+	mesh.life = Math.random() * tailLifeSpanChaos;
+	mesh.maxlife = mesh.life;
 	mesh.isParticle = true;
 	
 	particleTails.push(mesh);
@@ -603,7 +605,7 @@ function updateParticleTail()
 			scene.remove(particle);
 		}
 
-		var ms = (particle.life)/tailMaxLifeSpan;
+		var ms = (particle.life)/particle.maxlife;
 		particle.scale.set(ms,ms,ms);
 	}
 }

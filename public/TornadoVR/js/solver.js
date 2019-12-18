@@ -35,14 +35,8 @@ class Particle extends Entity {
         super({mesh, mass, position, velocity, _forceAcc});
     }
     subUpdate(dt) {
-        if(this.position.y < -500)
+        if(this.position.length() > 1000)
             this.destroy();
-    }
-}
-
-class Tail extends Entity {
-    constructor() {
-        
     }
 }
 
@@ -51,6 +45,7 @@ class RigidBody extends Entity {
     constructor({mesh, mass, position, velocity, _forceAcc, size}){
         super({mesh, mass, position, velocity, _forceAcc});
         this.size = size;
+        this.mesh.position.copy();
     }
 }
 
@@ -98,6 +93,8 @@ class Solver {
     particles = [];
     derivatives_particle = [];
 
+    tails = [];
+
     rigidbodies = [];
     derivatives_rigid = [];
 
@@ -113,6 +110,9 @@ class Solver {
     tornadoH = 200;
     tornadoHChaos = 50; 
     Fup = new THREE.Vector3(0.0, 100, 0.0);
+
+    // tail
+    lifeChaos = 100;
 
     defaultTimestep = 1/120; // assume 60 FPS
 
@@ -163,7 +163,7 @@ class Solver {
             const initVMag = 500;
             const tornadoFactor = 100;
 
-            // vecot0r
+            // vecotor
             const vecPC = (new THREE.Vector3()).subVectors(this.tornadoC, entity.position);
             vecPC.y = 0;
             const vecPCNorm = (new THREE.Vector3()).copy(vecPC);
