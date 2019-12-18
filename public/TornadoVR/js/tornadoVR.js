@@ -1,16 +1,8 @@
-
-/*
-	Three.js "Tornado"
-	Author: Rodolfo Aramayo
-	Date: May 2016
- */
-
 // MAIN
 
 // graphics variables (Ray casting) 
 var mouseCoords = new THREE.Vector2();
 var raycaster = new THREE.Raycaster();
-var ballMaterial = new THREE.MeshPhongMaterial( {color: 0x202020 })
 
 // standard global variables
 var container, scene, camera, renderer, effect, controls, stats;
@@ -164,12 +156,22 @@ function init()
 	////////////
 	// CUSTOM //
 	////////////
+ 
 
+	// Ground floor
 
-	var gridXZ = new THREE.GridHelper(500, 10);
+	let ground_size_x = 500;
+	let ground_size_y = 100;
+
+	var gridXZ = new THREE.GridHelper(ground_size_x, ground_size_y);
 	gridXZ.setColors( new THREE.Color(0x006600), new THREE.Color(0x006600) );
 	gridXZ.position.set( 0,0,0 );
 	scene.add(gridXZ);
+
+	var planeGeo = new THREE.PlaneBufferGeometry( ground_size_x * 2, ground_size_y * 10 );
+	var planeBottom = new THREE.Mesh( planeGeo, new THREE.MeshPhongMaterial( { color: 0xffffff } ) );
+	planeBottom.rotateX( - Math.PI / 2 );
+	scene.add( planeBottom );
 	
 	// var gridXY = new THREE.GridHelper(100, 10);
 	// gridXY.position.set( 100,100,0 );
@@ -372,7 +374,7 @@ function rebuildParticles() {
 		material2 = loadMaterial ( 1 );
 		material3 = loadMaterial ( 2 );
 
-		tailMaterial = loadMaterial(5); //TODO flap - tail material
+		tailMaterial = loadMaterial(5); 
 	}
 	
 	
@@ -391,7 +393,7 @@ function rebuildParticles() {
 
 	// set new solver
 	solver = new Solver();  
-	//_createParticleParticle();
+	_createParticleParticle();
 	
 }
 
@@ -430,7 +432,8 @@ function initInput() {
 		}
 		console.log("Nearest point : ",nearestPoint);
 		// Creates a ball and throws it
-		var cubeGeometry = new THREE.CubeGeometry( 20, 20, 20 );
+		let cube_size = 20;
+		var cubeGeometry = new THREE.CubeGeometry( cube_size, cube_size, cube_size );
 		var cubeMaterial = new THREE.MeshBasicMaterial( { color: 0x2222ff } );
 		var cube = new THREE.Mesh( cubeGeometry, cubeMaterial );
 		
@@ -439,7 +442,7 @@ function initInput() {
 		// cube.position.z = ( raycaster.ray.direction.z + raycaster.ray.origin.z );
 
 		cube.position.x = nearestPoint.x;
-		cube.position.y = nearestPoint.y;
+		cube.position.y = nearestPoint.y + cube_size / 2;
 		cube.position.z = nearestPoint.z;
 
 		
@@ -507,7 +510,7 @@ function update()
 	lastFrameTime = currFrameTime;
 	currFrameTime = lastFrameTime + dt;
 
-	generateGroundParticle();
+	//generateGroundParticle();
 	
 	if ( keyboard.pressed("z") ) 
 	{	// do something   
@@ -544,11 +547,11 @@ function generateGroundParticle()
 	{
 		lastParticleGenerateTime = currFrameTime;
 		let mesh = new THREE.Mesh(geometry, material);
-		let pos = new THREE.Vector3(1000*Math.random() - 500, 50, 1000*Math.random() - 500);
+		let pos = new THREE.Vector3(1000*Math.random() - 500, 100, 1000*Math.random() - 500);
 		mesh.position.copy(pos);
 		let particle = new Particle({
 			mesh: mesh,
-			mass: 1,
+			mass: 0.001 + Math.random()*particleMassChaos,
 			position: new THREE.Vector3().copy(pos),
 			velocity: new THREE.Vector3()
 		});
@@ -557,15 +560,16 @@ function generateGroundParticle()
 	}
 }
 
+
 // for debug
 function _createParticleParticle() 
 {	
 	let mesh = new THREE.Mesh(geometry, material);
-	let pos = new THREE.Vector3(300, 100, 300);
+	let pos = new THREE.Vector3(100, 100, 100);
 	mesh.position.copy(pos);
 	let particle = new Particle({
 		mesh: mesh,
-		mass: 0.1 + Math.random()*particleMassChaos,
+		mass: 0.001 + Math.random()*particleMassChaos,
 		position: new THREE.Vector3().copy(pos),
 		velocity: new THREE.Vector3()
 	});
@@ -573,7 +577,6 @@ function _createParticleParticle()
 	scene.add(mesh);		
 }
 
-// TODO delete
 function createParticleTail( pos ) // flap - create tail for particle
 {
 	mesh = new THREE.Mesh( tailGeometry, tailMaterial );//THREEx.Crates.createCrate1();   //
@@ -586,7 +589,6 @@ function createParticleTail( pos ) // flap - create tail for particle
 	particleTails.push(mesh);
 }
 
-// TODO delete
 function updateParticleTail()
 {
 	for (var i = particleTails.length-1; i >= 0; i--)

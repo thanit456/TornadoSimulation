@@ -4,7 +4,6 @@ class Entity {
     velocity;
     _forceAcc;
     mass;
-    isRaising = false;
     isDestroy = false;
     constructor({mesh, mass, position, velocity, _forceAcc}) {
         this.mesh = mesh;
@@ -33,6 +32,14 @@ class Particle extends Entity {
         super({mesh, mass, position, velocity, _forceAcc});
     }
     subUpdate(dt) {
+        if(this.position.y < -500)
+            this.destroy();
+    }
+}
+
+class Tail extends Entity {
+    constructor() {
+        
     }
 }
 
@@ -92,15 +99,14 @@ class Solver {
     derivatives_rigid = [];
 
     // gravity
-    gravity = new THREE.Vector3(0.0, -98, 0.0);
-
+    gravity = new THREE.Vector3(0.0, -9.8, 0.0);
+    B = new THREE.Vector3(0, 20, 0);
     // tornado
-    tornadoCenter = new THREE.Vector3();
-    suckPoint = new THREE.Vector3(20, 0.0, 0.0);
-    vecUp = new THREE.Vector3(0.0,1.0,0.0);
+    tornadoCenter = new THREE.Vector3(0.0, 200, 0.0) //tornado high;
+    tornadog = 10;
+    tornadoB = new THREE.Vector3(0.0, 20, 0.0);
 
-    defaultTimestep = 1/30; //TODO work around
-    //defaultTimestep = 1/60; // assume 60 FPS
+    defaultTimestep = 1/60; // assume 60 FPS
 
     tries = 0;
     MAX_TRIES = 10;
@@ -140,57 +146,38 @@ class Solver {
     }
     
     calcForces() {
-        // for each particle
+        // temporary remove gravity
         this.derivatives.forEach((dp, idx) =>{
             const entity = this.entities[idx];
-
-            // parameter
-            const d = 10;
-            const upMag = 200;
-            const suckMag = 500;
-            const vtMag = 1000;
-            const tornadoMag = 50;
-            const tornadoH = 200;
-            const tornadoHChaos = 200;
-            const suckHeight = 100;
-            const initVMag = 0.01 + Math.floor((Math.random() * tornadoMag));
-
-            const V = entity.velocity;
-            const height = entity.position.y;
             
-            // Force
-            const Fg = this.gravity.clone().multiplyScalar(entity.mass);
+            const distToEye_2 = Math.pow(entity.position.x - this.tornadoCenter.x,2) + Math.pow(entity.position.z - this.tornadoCenter.z,2);
             
-            // Velocity
-            const Vf = new THREE.Vector3();
-            const Vsuck = new THREE.Vector3();
-            let Vt = new THREE.Vector3();
-            let Vtornado = new THREE.Vector3();
+            const dirToEye = (new THREE.Vector3()).subVectors(this.tornadoCenter, entity.position);
+            dirToEye.y = 0.0;
+            dirToEye.normalize();
+
+            // suck by tornad
+            let suckOffset = (new THREE.Vector3()).crossVectors(dirToEye)
+            let suckForceXZ = (new THREE.Vector3()).copy(dirToEye);
+
+            // lesser by distance
+            suckForceXZ.multiplyScalar( 1000 / Math.max(distToEye_2, 1));
             
-            const vecPA = new THREE.Vector3();
-            vecPA.subVectors(this.tornadoCenter, entity.position);
-            vecPA.y = 0.0; // set to plane XZ
 
-            const r = Math.abs( vecPA.length() );
-            const vecT = (new THREE.Vector3).crossVectors(vecPA, this.vecUp).normalize();
+            let suckForceY = (new THREE.Vector3(0, 11, 0));
 
-            const vecPANorm = vecPA.clone();
-            vecPANorm.normalize();
+            //let magneticForce = new THREE.Vector3().crossVectors(entity.velocity, this.tornadoB);
+            //magneticForce.multiplyScalar(-100/distToEye_2);
 
-            // sucktion
-            if (entity.position.x - (this.tornadoCenter.x + this.suckPoint.x) < this.suckPointRadius 
-                && (entity.position.y - (this.tornadoCenter.y + this.suckPoint.y)) < this.suckPointRadius
-                && entity.position.y < 20)
+            //if (entity.position.y < this.tornadoCenter.y)
+            // dp._forceAcc.add(this.gravity);
+            if (true)
             {
-                entity.isRaising = true;
-                
-                // set V
-                V.copy(vecT);
-                V.multiplyScalar(initVMag);
+                dp._forceAcc.add(suckForceXZ);
+                //dp._forceAcc.add(suckForceY);
+                //dp._forceAcc.add(magneticForce);
+                //dp._forceAcc.add(drag);
             }
-
-            dp._forceAcc.add(Fg);
-
         });
     }
 
