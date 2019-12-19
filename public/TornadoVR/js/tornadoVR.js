@@ -19,7 +19,6 @@ var dt = 1/60;
 let solver = new Solver();
 
 // global variable for particle
-let particleMassChaos = 0.010;
 let particleGenerateRate = 16; // per frame
 
 // particle generate
@@ -112,11 +111,11 @@ function init()
 	scene.add(camera);
 	if (deviceOrientation)
 	{
-		camera.position.set(100,20,400);
+		camera.position.set(200,40,800);
 	}
 	else
 	{
-		camera.position.set(400,200,400);
+		camera.position.set(1200,600,1200);
 	}
 	camera.lookAt(scene.position);	
 	// RENDERER
@@ -208,17 +207,16 @@ function init()
 	particleOptions = {
 		particleCount: 2000,
 		deltaTime:20,
-		betaX:0.0,
-		betaY:0.015,
-		betaZ:0.0,
-		GX:0.0,
-		GY:0.0015,
-		GZ:0.0,
-		gravity:0.01,
-		betaLiftChaos:10,
+		// betaX:0.0,
+		// betaY:0.015,
+		// betaZ:0.0,
+		// GX:0.0,
+		// GY:0.0015,
+		// GZ:0.0,
+		// gravity:0.01,
+		// betaLiftChaos:10,
 		height:750,
 		heightChaos:250,
-		tornadoFactor:15,
 		instantRespawn:false,
 		tracer:false,
 
@@ -236,18 +234,21 @@ function init()
 	// 	tornadoH: 200,
 	// 	tornadoHChaos: 50,
 	// };
-
+	const settings = {
+		grav: 9.8,
+	}
 	// material (attributes)
 	h = gui.addFolder("Tornado Config");
 	h.add(solver, "tornadoBaseR", 50, 500, 100).name("base radius");
 	h.add(solver, "tornadoH", 100, 1000, 2000).name("lift up height");
 	h.add(solver, "tornadoHChaos", 20, 200, 50).name("lift up chaos");
+	h.add(solver, "tornadoFactor", 0, 1000, 10).name("side force");
 	h.add(solver, "MAX_TRIES", 1, 10, 5).name("max solver restart");
 	h.add(solver.Fup, "y", 50, 1000, 100).name("Up force");
 	h.add(solver, "suckMag", 50, 1000, 100).name("suck force magnitude");
 	h.add(solver, "initVMag", 50, 1000, 100).name("Init VMag");
-	h.add(solver.gravity, "y", -4*9800, -200, -9800).name("Gravity").onChange(e => {
-		solver.gravity.y *= -100; // scale according to flap code
+	h.add(settings, "grav", 2, 100, 9.8).name("Gravity").onChange(e => {
+		solver.gravity.y = -100*e;
 	});
 
 	
@@ -257,45 +258,43 @@ function init()
 	h = gui.addFolder( "Particle Options" );
 
 	h.add( particleOptions, "particleCount", 1, 10000, 100 ).name( "#particles" ).onChange( rebuildParticles );
-	h.add( particleOptions, "deltaTime", 1, 1000, 1 ).name( "dt" ).onChange( rebuildParticles );
-	h.add( particleOptions, "gravity", 0, 0.1, 0.01 ).name( "Gravity" ).onChange( rebuildParticles );
+	// h.add( particleOptions, "deltaTime", 1, 1000, 1 ).name( "dt" ).onChange( rebuildParticles );
+	// h.add( particleOptions, "gravity", 0, 0.1, 0.01 ).name( "Gravity" ).onChange( rebuildParticles );
 	h.add( particleOptions, "height", 0, 5000, 1 ).name( "height" ).onChange( rebuildParticles );
 	h.add( particleOptions, "heightChaos", 0, 2500, 1 ).name( "heightChaos" ).onChange( rebuildParticles );
 	h.add( particleOptions, "instantRespawn" ).name( "instant respawn" ).onChange( rebuildParticles );
 	h.add( particleOptions, "tracer" ).name( "show tracer" ).onChange( rebuildParticles );
 	// tail
 	h.add( particleOptions, "tailParticleCount", 0, 2000, 50 ).name( "tail particle count").onChange( rebuildParticles );
-	h.add( particleOptions, "tailSpawnInterval", 0, 1, 0.001 ).name( "tail spawn interval" ).onChange( rebuildParticles );
+	// h.add( particleOptions, "tailSpawnInterval", 0, 1, 0.001 ).name( "tail spawn interval" ).onChange( rebuildParticles );
 	h.add( particleOptions, "tailLifeSpanChaos", 0, 20, 0.05 ).name( "tail life span chaos").onChange( rebuildParticles );
 
-	h = gui.addFolder( "Magnetic Field Options" );
-	h.add( particleOptions, "betaX", 0, 0.1, 0.01 ).name( "betaX" ).onChange( rebuildParticles );
-	h.add( particleOptions, "betaY", 0, 0.1, 0.01 ).name( "betaY" ).onChange( rebuildParticles );
-	h.add( particleOptions, "betaZ", 0, 0.1, 0.01 ).name( "betaZ" ).onChange( rebuildParticles );
+	// h = gui.addFolder( "Magnetic Field Options" );
+	// h.add( particleOptions, "betaX", 0, 0.1, 0.01 ).name( "betaX" ).onChange( rebuildParticles );
+	// h.add( particleOptions, "betaY", 0, 0.1, 0.01 ).name( "betaY" ).onChange( rebuildParticles );
+	// h.add( particleOptions, "betaZ", 0, 0.1, 0.01 ).name( "betaZ" ).onChange( rebuildParticles );
 
-	h.add( particleOptions, "GX", 0, 0.01, 0.0005 ).name( "beta Lift X" ).onChange( rebuildParticles );
-	h.add( particleOptions, "GY", 0, 0.01, 0.0005 ).name( "beta Lift Y" ).onChange( rebuildParticles );
-	h.add( particleOptions, "GZ", 0, 0.01, 0.0005 ).name( "beta Lift Z" ).onChange( rebuildParticles );
+	// h.add( particleOptions, "GX", 0, 0.01, 0.0005 ).name( "beta Lift X" ).onChange( rebuildParticles );
+	// h.add( particleOptions, "GY", 0, 0.01, 0.0005 ).name( "beta Lift Y" ).onChange( rebuildParticles );
+	// h.add( particleOptions, "GZ", 0, 0.01, 0.0005 ).name( "beta Lift Z" ).onChange( rebuildParticles );
 
-	h.add( particleOptions, "tornadoFactor", 0, 100, 25 ).name( "Tornado Factor" ).onChange( rebuildParticles );
+	// h.add( particleOptions, "tornadoFactor", 0, 100, 25 ).name( "Tornado Factor" ).onChange( rebuildParticles );
 
-	h.add( particleOptions, "betaLiftChaos", 1, 50, 1 ).name( "beta Lift Chaos" ).onChange( rebuildParticles );
+	// h.add( particleOptions, "betaLiftChaos", 1, 50, 1 ).name( "beta Lift Chaos" ).onChange( rebuildParticles );
 	
 	window.addEventListener( 'resize', onWindowResize, false );
 }
 
 function rebuildParticles() {	
-	B.x = particleOptions.betaX;
-	B.y = particleOptions.betaY;
-	B.z = particleOptions.betaZ;
+	// B.x = particleOptions.betaX;
+	// B.y = particleOptions.betaY;
+	// B.z = particleOptions.betaZ;
 
-	G.x = -particleOptions.GX;
-	G.y = -particleOptions.GY;
-	G.z = -particleOptions.GZ;
+	// G.x = -particleOptions.GX;
+	// G.y = -particleOptions.GY;
+	// G.z = -particleOptions.GZ;
 
 	tailLifeSpanChaos = particleOptions.tailLifeSpanChaos;
-
-	tailSpawnInterval = particleOptions.tailSpawnInterval;
 	
 	// if (!window.mobilecheck())
 	// {
@@ -440,7 +439,7 @@ function initInput() {
 		cube.mesh_falling = true;
 		cube.mesh_raising = false;
 		cube.isParticle = true;
-		cube.topCutOff = particleOptions.height + Math.floor((Math.random() * particleOptions.heightChaos) + 1)
+		// cube.topCutOff = particleOptions.height + Math.floor((Math.random() * particleOptions.heightChaos) + 1)
 		//G is the raising velocity and makes a great tornado when its randomness is varied
 		//tempG just holds individual values for each particle
 		cube.tempG = new THREE.Vector3(G.x,G.y - Math.floor((Math.random()*particleOptions.betaLiftChaos) - particleOptions.betaLiftChaos/2.0) * .0001, G.z);// -.001
@@ -581,10 +580,10 @@ function generateGroundParticle()
 		let particleIdx = particleStack.pop();
 
 		lastParticleGenerateTime = currFrameTime;
-		let pos = new THREE.Vector3(1000*Math.random() - 500, 20, 1000*Math.random() - 500);
+		let pos = new THREE.Vector3(700*Math.random() - 350, 20, 700*Math.random() - 350);
 		let particle = new Particle({
 			meshIdx: particleIdx,
-			mass: 0.01 + Math.random()*particleMassChaos,
+			mass: 0.01,
 			position: new THREE.Vector3().copy(pos),
 			velocity: new THREE.Vector3(),
 			size: sizes[particleIdx],

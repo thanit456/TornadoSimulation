@@ -133,14 +133,14 @@ class Solver {
     // tornado
     tornadoC = new THREE.Vector3(0.0, 0.0, 0.0); //tornado high;
     tornadoBaseR = 100;
-    tornadoH = 200;
+    tornadoH = 300;
     tornadoHChaos = 50; 
     
     
     Fup = new THREE.Vector3(0.0, 100, 0.0);
     suckMag = 100;
     initVMag = 500;
-    tornadoFactor = 100;
+    tornadoFactor = 200;
 
     // tail
     lifeChaos = 100;
@@ -239,11 +239,11 @@ class Solver {
             {
                 dp._forceAcc.add(Fg);
                 // suck to tornado base
-                if (entity.position.y <= 50)
+                if (entity.position.y <= 75)
                 {
                     const Fsuck = new THREE.Vector3();
                     Fsuck.copy(vecPCNorm);
-                    Fsuck.multiplyScalar(this.suckMag);
+                    Fsuck.multiplyScalar(this.suckMag/Math.sqrt(vecPC.length()));
                     dp._forceAcc.add(Fsuck);
                 }
             }
