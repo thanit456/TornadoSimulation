@@ -207,6 +207,7 @@ function init()
 	particleOptions = {
 		particleCount: 2000,
 		deltaTime:20,
+		isFullGen: true,
 		// betaX:0.0,
 		// betaY:0.015,
 		// betaZ:0.0,
@@ -263,7 +264,7 @@ function init()
 	h.add( particleOptions, "height", 0, 5000, 1 ).name( "height" ).onChange( rebuildParticles );
 	h.add( particleOptions, "heightChaos", 0, 2500, 1 ).name( "heightChaos" ).onChange( rebuildParticles );
 	h.add( particleOptions, "instantRespawn" ).name( "instant respawn" ).onChange( rebuildParticles );
-	h.add( particleOptions, "tracer" ).name( "show tracer" ).onChange( rebuildParticles );
+	h.add( particleOptions, "isFullGen" ).name( "Generate Type	" ).onChange( rebuildParticles );
 	// tail
 	h.add( particleOptions, "tailParticleCount", 0, 2000, 50 ).name( "tail particle count").onChange( rebuildParticles );
 	// h.add( particleOptions, "tailSpawnInterval", 0, 1, 0.001 ).name( "tail spawn interval" ).onChange( rebuildParticles );
@@ -580,7 +581,19 @@ function generateGroundParticle()
 		let particleIdx = particleStack.pop();
 
 		lastParticleGenerateTime = currFrameTime;
-		let pos = new THREE.Vector3(700*Math.random() - 350, 20, 700*Math.random() - 350);
+		let pos;
+		if (particleOptions.isFullGen)
+		{
+			pos = new THREE.Vector3(700*Math.random() - 350, 20, 700*Math.random() - 350);
+		}
+		else
+		{
+			if (Math.random() > 0.5)
+				pos = new THREE.Vector3(-300*Math.random() - 300, 20, -300*Math.random() - 300);
+			else
+				pos = new THREE.Vector3(300*Math.random() + 300, 20, 300*Math.random() + 300);
+		}
+		
 		let particle = new Particle({
 			meshIdx: particleIdx,
 			mass: 0.01,

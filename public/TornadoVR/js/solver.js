@@ -241,6 +241,7 @@ class Solver {
                 // suck to tornado base
                 if (entity.position.y <= 75)
                 {
+                    
                     const Fsuck = new THREE.Vector3();
                     Fsuck.copy(vecPCNorm);
                     Fsuck.multiplyScalar(this.suckMag/Math.sqrt(vecPC.length()));
